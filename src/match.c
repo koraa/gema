@@ -305,7 +305,8 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  if ( next_arg == NULL ) /* matching only up to first argument */
 	    goto success;
 	  if ( ( ic == goal_char ||
-	         ( goal_char == UPOP(PT_SPACE) && isspace(ic) ) ) &&
+	         ( goal_char == UPOP(PT_SPACE) && isspace(ic) &&
+		   ( optional || isspace(cos_prevch(outbuf)) ) ) ) &&
 	       try_pattern( in, ps+1, NULL, all_args,
 			    (options & MatchNoCase), goal ) )
 	    /* would be valid constituent except that it appears in the
@@ -707,7 +708,8 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
       break;  /* done */
     else if ( goal_char != ENDOP ) {
       if ( ch == goal_char ||
-    	   (goal_char == UPOP(PT_SPACE) && isspace(ch) ) ) {
+    	   (goal_char == UPOP(PT_SPACE) && isspace(ch) &&
+	    !( no_match && ignore_whitespace ) ) ) {
 	if ( goal_char == goal[0] &&
 	     (goal[1] == PT_END || goal[1] == PT_MATCH_ANY ||
 	      goal[1] == PT_MATCH_ONE || goal[1] == PT_RECUR ) )
