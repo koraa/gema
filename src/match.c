@@ -81,20 +81,35 @@ get_goal_char( const unsigned char* ps ) {
 #define MatchLine 2
 #define MatchNoCase 4
 
+struct mark_struct {
+  CIStream in;
+  boolean marked;
+  MarkBuf start;
+};
+
+static int
+getch_marked(struct mark_struct* ps) {
+  if ( !ps->marked ) {
+    cis_mark(ps->in, &ps->start);
+    ps->marked = TRUE;
+  }
+  return cis_getch(ps->in);
+}
+
 boolean
 try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	     CIStream* all_args, int options, const unsigned char* goal) {
   const unsigned char* ps;
   int ic, pc;
-  MarkBuf start;
-  boolean marked;
+  struct mark_struct marker;
   MarkBuf end_position;
   boolean end_position_marked;
   boolean match;
   int local_options;
 
   local_options = options;
-  marked = FALSE;
+  marker.marked = FALSE;
+  marker.in = in;
   end_position_marked = FALSE;
   for ( ps = patstring ; ; ps++ ) {
     pc = *ps;
@@ -139,11 +154,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  goto failure;
 	else {
 	  int xc;
-	  if ( !marked ) {
-	    cis_mark(in, &start);
-	    marked = TRUE;
-	  }
-	  xc = cis_getch(in);
+	  xc = getch_marked(&marker);
 #ifndef NDEBUG
 	  if ( xc != ic )
 	    input_error(in, EXS_INPUT, __FILE__
@@ -161,11 +172,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
     case PT_MATCH_ONE: {
       if ( next_arg == NULL ) /* matching only up to first argument */
 	goto success;
-      if ( !marked ) {
-	cis_mark(in,&start);
-	marked = TRUE;
-      }
-      ic = cis_getch(in);
+      ic = getch_marked(&marker);
       if ( ic == EOF || ( ic == '\n' && (local_options & MatchLine) ) )
 	goto failure;
       if ( pc == PT_ONE_OPT )
@@ -186,9 +193,9 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	goto success;
       outbuf = make_buffer_output_stream();
       domain = *++ps - 1;
-      if ( !marked ) {
-	cis_mark(in,&start);
-	marked = TRUE;
+      if ( !marker.marked ) {
+	cis_mark(in,&marker.start);
+	marker.marked = TRUE;
       }
       if ( translate ( in, domains[domain], outbuf,
 		       ( ps[1]==PT_END? goal : ps+1 ) ) )
@@ -290,15 +297,11 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	      cos_putch(outbuf, ic);
 	    break;
 	  }
-	  if ( !marked ) {
-	    cis_mark(in, &start);
-	    marked = TRUE;
-	  }
-	  cos_putch(outbuf, cis_getch(in));
+	  cos_putch(outbuf, getch_marked(&marker));
 	} /* end ok */
-	else if ( ignore_whitespace && isspace(ic) &&
-		  ( kind=='T' || kind=='C' || !isident(cis_prevch(in)) ) ) {
-	  (void)cis_getch(in);
+	else if ( ignore_whitespace && isspace(ic) && num_found == 0 &&
+		  ( kind=='Y' || kind=='C' || !isident(cis_prevch(in)) ) ) {
+	  (void)getch_marked(&marker);
 	  continue;
 	}
 	else break;
@@ -336,13 +339,8 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  goto failure;
 	cis_rewind(arg);
 	while ( ( ac = cis_getch(arg) ) != EOF ) {
-	  if ( ac == cis_peek(in) ) {
-	    if ( !marked ) {
-	      cis_mark(in,&start);
-	      marked = TRUE;
-	     }
-	    (void)cis_getch(in);
-	  }
+	  if ( ac == cis_peek(in) )
+	    (void)getch_marked(&marker);
 	  else goto failure;
 	}
 	break;
@@ -357,7 +355,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
     	value = (const unsigned char*) get_var(vname,FALSE,&length);
 	for ( ; length > 0 ; length-- )
 	  if ( ((int)*value++) == cis_peek(in) )
-	    (void)cis_getch(in);
+	    (void)getch_marked(&marker);
 	  else goto failure;
 	break;
       }
@@ -365,7 +363,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
     case PT_SPACE: /* at least one space required */
       if ( !isspace( cis_peek(in) ) ) {
 	if ( isspace( cis_prevch(in) ) &&
-	     ( marked || next_arg == all_args ) )
+	     ( marker.marked || next_arg == all_args ) )
 	  break;
 	else goto failure;
       }
@@ -382,11 +380,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	       ( ps > patstring &&
 	         ( ps[-1] == PT_LINE || ps[-1] == '\n' ) ) ) )
 	  break;
-	if ( !marked ) {
-	  cis_mark(in,&start);
-	  marked = TRUE;
-	}
-	(void)cis_getch(in);
+	(void)getch_marked(&marker);
       }
       break;
     }
@@ -407,7 +401,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 #if 0 	/* changed my mind */
     case PT_ARG_DELIM: { /* command line argument delimiter */
       while ( cis_peek(in) == Arg_Delim )
-	(void)cis_getch(in);
+	(void)getch_marked(&marker);
       ic = cis_prevch(in);
       if ( ic == Arg_Delim || ic == EOF || cis_peek(in) == EOF )
 	break;
@@ -427,7 +421,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  break;
 	if ( ic == '\n' ) {
 	  if ( !is_operator(np) ) /* accept newline if not end of template */
-	    (void)cis_getch(in);
+	    (void)getch_marked(&marker);
 	  break;
 	}
       }
@@ -473,9 +467,9 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
     	else goto failure;
       case PTX_POSITION: /* leave input stream here after match */
 	if ( ps[1] != PT_END ) {
-	  if ( !marked ) {
-	    cis_mark(in,&start);
-	    marked = TRUE;
+	  if ( !marker.marked ) {
+	    cis_mark(in,&marker.start);
+	    marker.marked = TRUE;
 	  }
 	  cis_mark(in, &end_position);
 	  end_position_marked = TRUE;
@@ -485,11 +479,12 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	if ( !(local_options & MatchSwallow) ) {
 	  /* when doing look-ahead for argument delimiter */
 	  assert( next_arg == NULL );
-	  if ( marked ) /* some text matched, consider it sufficient. */
+	  if ( marker.marked ) /* some text matched, consider it sufficient. */
 	    goto success;
 	  else goto failure; /* don't terminate the argument yet */
 	}
 	break;
+      case PTX_JOIN: break;
 #ifndef NDEBUG
       default:
 	input_error( in, EXS_FAIL, "Undefined aux op in template: %d\n", ec);
@@ -509,18 +504,12 @@ again:
 	   ( !(local_options & MatchNoCase) || toupper(ic) != toupper(pc) ) ){
 	if ( ignore_whitespace && isspace(ic) &&
 	     ( !isident(pc) || !isident(cis_prevch(in)) ) ) {
-	  (void)cis_getch(in);
+	  (void)getch_marked(&marker);
 	  goto again;
 	}
 	goto failure;
       }
-      else {
-	if ( !marked ) {
-	  cis_mark(in,&start);
-	  marked = TRUE;
-	}
-	(void)cis_getch(in);
-      }
+      else (void)getch_marked(&marker);
       } /* end default */
     } /* end switch pc */
   continue_match: ;
@@ -531,17 +520,17 @@ again:
  success:
   match = TRUE;
  quit:
-  if ( marked ) {
+  if ( marker.marked ) {
     if ( match && ( options & MatchSwallow ) ) {
       if ( end_position_marked )
 	cis_restore(in,&end_position);
       /* else leave the input stream at the end of the matched text */
-      cis_release(in,&start);
+      cis_release(in,&marker.start);
     }
     else {
       if ( end_position_marked )
 	cis_release(in,&end_position);
-      cis_restore(in,&start); /* restore input to previous position */
+      cis_restore(in,&marker.start); /* restore input to previous position */
     }
   }
   return match;
