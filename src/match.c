@@ -111,7 +111,20 @@ getch_marked(struct mark_struct* ps) {
 boolean trace_switch = FALSE;
 
 #include <stdarg.h>
+#include <limits.h>
 static int trace_indent = 0;
+static struct { int level; long line; int column; int ch; int domain; }
+	trace_enter = {INT_MAX,0,0,0,-1};
+static char*
+show_char(int ch) {
+  static char buf[2];
+  switch(ch){
+  case '\n': return "\\n";
+  case '\t': return "\\t";
+  case '\f': return "\\f";
+  default: buf[0] = ch; buf[1] = '\0'; return buf;
+  }
+}
 
 typedef enum { FAIL, OK } trace_kinds;
 
@@ -121,6 +134,15 @@ trace( struct mark_struct * mp, trace_kinds kind, const char* format, ... ) {
   va_start(args,format);
   if ( trace_switch ) {
     int n;
+    if ( trace_indent > trace_enter.level ) {
+      fprintf( stderr, "%12d,%2d ", trace_enter.line, trace_enter.column);
+      for ( n = trace_enter.level ; n > 0 ; n-- )
+	fputc(' ',stderr);
+      fprintf( stderr, "Try <%s> at '%s'\n",
+	       domains[trace_enter.domain]->name,
+	       show_char(trace_enter.ch) );
+    }
+    trace_enter.level = INT_MAX;
     if ( mp->in != input_stream )
       fprintf( stderr, "%16s", "");
     else {
@@ -133,7 +155,8 @@ trace( struct mark_struct * mp, trace_kinds kind, const char* format, ... ) {
       fputc(' ',stderr);
     if ( kind == FAIL ) fprintf( stderr, "Failed ");
     vfprintf(stderr, format, args);
-    if ( kind == FAIL ) fprintf( stderr, " at '%c'\n", cis_peek(mp->in) );
+    if ( kind == FAIL ) fprintf( stderr, " at '%s'\n",
+				 show_char(cis_peek(mp->in)) );
   }
   va_end(args);
 }
@@ -258,24 +281,35 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	marker.marked = TRUE;
       }
 #ifdef TRACE
-      ++trace_indent;
+      if ( trace_switch ) {
+	++trace_indent;
+	if ( trace_indent < trace_enter.level ) {
+	  trace_enter.level = trace_indent;
+	  trace_enter.line = cis_line(in);
+	  trace_enter.column = cis_column(in);
+	  trace_enter.ch = cis_peek(in);
+	  trace_enter.domain = domain;
+	}
+      }
 #endif
       if ( translate ( in, domains[domain], outbuf,
 		       ( ps[1]==PT_END? goal : ps+1 ) ) ) {
 	*next_arg++ = convert_output_to_input( outbuf );
 	*next_arg = NULL;
 #ifdef TRACE
-	if ( trace_switch )
+	if ( trace_switch ) {
 	  trace ( &marker, OK, "Matched <%s> as \"%.60s\"\n",
 		   domains[domain]->name, cis_whole_string(next_arg[-1]) );
-	--trace_indent;
+	  --trace_indent;
+	}
 #endif
 	}
       else {
 #ifdef TRACE
-	if ( trace_switch )
+	if ( trace_switch ) {
 	  trace( &marker, FAIL, "<%s>", domains[domain]->name );
-	--trace_indent;
+	  --trace_indent;
+	}
 #endif
 	cos_close(outbuf);
 	goto failure;
@@ -612,7 +646,7 @@ again:
 #ifdef TRACE
 	if ( trace_switch &&
 	     (local_options & (MatchArgDelim|MatchSwallow))==MatchSwallow )
-	  trace( &marker, FAIL, "'%c'", pc);
+	  trace( &marker, FAIL, "'%s'", show_char(pc) );
 #endif
 	goto failure;
       }
