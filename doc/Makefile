@@ -1,7 +1,7 @@
 
 # $Id$
 
-all: doc.ps gema.ps doc.html gema.html
+all: doc.ps gema.ps doc.html gema.html gema.lpr
 
 #	user/reference manual
 
