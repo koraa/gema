@@ -1,5 +1,6 @@
 .\" @(#)gema.1
-.TH GEMA 1 "22 Jan 1995" " " " "
+.\" $Id$
+.TH GEMA 1 "26 Feb 1995" " " " "
 .SH NAME
 gema \- general purpose macro processor
 .SH SYNOPSIS
@@ -14,11 +15,12 @@ gema \- general purpose macro processor
 Where \fIoptions\fP is:
 .br
 \fB\-f\fP \fIpattern_file\fP | [\fB\-p\fP] '\fIpatterns\fP' |
-.BR -b " | " -i " | " -k " | "
-.BR -line " | " -match " | "
-\fB-idchars \fP\fIcharset\fP |
-\fB-filechars \fP\fIcharset\fP |
-\fB-literal \fP\fIcharset\fP
+.BR \-b " | " \-i " | " \-k " | "
+.BR \-line " | " \-match " | "
+.BR \-t " | " \-w " | "
+\fB\-idchars \fP\fIcharset\fP |
+\fB\-filechars \fP\fIcharset\fP |
+\fB\-literal \fP\fIcharset\fP
 .de QX
 "\\fB\\$1\\fP"\\$2
 ..
@@ -102,8 +104,17 @@ The following characters have special meaning in patterns:
 Usually when doing string replacement we need to be a little more careful.
 For example, suppose we want to replace the variable name "x" with the
 name "horizontal".  We don't want to replace instances of "x" that appear
-as parts of words, only those that are a word by themselves.  This can
-easily be done like this:
+as parts of words, only those that are a word by themselves.
+This can easily be done like this:
+.br
+\ \ \ \fBgema \-t 'x=horizontal'\fP ...
+.br
+where the
+.B \-t
+option (token mode) requires all identifiers in templates to match a
+complete identifier in the input data.
+If you don't want this behavior everywhere, it can instead be specified
+locally in the template like this:
 .br
 \ \ \ \fBgema '\\Ix\\I=horizontal'\fP ...
 .br
@@ -115,6 +126,9 @@ particularly useful is "\fB\\W\fP", which says that any number of
 whitespace characters will be accepted and skipped over if they appear
 at that point.  Thus a template like "\fBx\\W+\\Wy\fP" will match regardless
 of whether the input text contains optional spaces.
+The
+.B \-w
+option may be used to ignore spaces everywhere.
 .LP
 A template such as "\fBfirst\ down\fP" will not only match these two
 words separated by a space, it will also match if they are separated by
@@ -388,12 +402,20 @@ option, this specifies that each output file will have the designated
 suffix replacing the suffix of the input file.
 For example, given the command line:
 .br
-\ \ \ \fBgema -f patterns -odir /stuff -otyp .list *.text\fP
+\ \ \ \fBgema \-f patterns \-odir /stuff \-otyp .list *.text\fP
 .br
 then if the current directory contains a file named
 .QX foo.text ,
 it will be translated to an output file named
 .QX /stuff/foo.list .
+.TP
+.BI \-backup " suffix"
+The argument will be used as the backup file suffix in place of the default
+.QX .bak .
+.TP
+.BI \-nobackup
+Output files will be overwritten instead of saving the old file as a
+backup file.
 .TP
 .B \-line
 Places the program in line mode, which means that all pattern matching
@@ -420,11 +442,35 @@ discarded instead of being copied to the output.  This would be used
 when you want to extract selected information (like with
 .BR grep )
 instead of doing a translation.
+This option applies only to the default domain.
+Another way to discard unmatched text is with the default rule:
+.QX ?=;
 .TP
 .B \-i
 Case insensitive mode.  All letters in templates will be matched without
 regard to distinctions of upper case or lower case.  This also makes the
 names of domains and built-in functions case insensitive.
+.TP
+.B \-w
+Whitespace insensitive mode.  Space and tab characters in rules will be
+ignored except where they separate identifiers.
+Template matching will ignore whitespace characters in the
+input data as though templates had an implicit
+.QX \\\\W
+everywhere except within identifiers.
+Templates can use
+.QX \\\\J
+to indicate where space is
+.I not
+allowed.
+.TP
+.B \-t
+Token mode.  All identifiers appearing in templates will match only
+against a complete identifier, as though each identifier was implicitly
+surrounded by
+.QX \\\\I
+except where counter-acted by
+.QX \\\\J .
 .TP
 .BI \-idchars " charset"
 Identifier characters.  The argument value specifies the set of
@@ -435,7 +481,12 @@ This affects the behavior of
 .QX \\\\I ,
 .QX <I> ,
 and
-.QX <Y> .
+.QX <Y> ,
+and the
+.B \-w
+and
+.B \-t
+options.
 For example, if you were processing
 .SM COBOL
 source code, you would need
@@ -517,7 +568,7 @@ escape character; see the section on "escape sequences" below.
 combine control key with the following character
 .TP
 .I Space
-matches one or more white space characters (same as
+matches one or more whitespace characters (same as
 .QX \\\\S ).
 .TP
 .I NewLine
@@ -528,6 +579,15 @@ end of action, or separator between function arguments
 .TP
 .BI @ name { args }
 invoke built-in function or user-defined translation domain (action only)
+.TP
+.BI @ special-character
+has the default meaning of the special character by itself, as
+documented here; this can be used to access the original functionality of a
+character that has been changed by the
+.B \-literal
+option or
+.B @set-syntax
+function.
 .TP
 .B :
 separates domain name from rule
@@ -616,6 +676,15 @@ complete preceding argument before considering rest of template
 \fB\eI\fP
 Identifier separator
 .TP
+\fB\eJ\fP
+Join -- locally counteracts the
+.B \-w
+and/or
+.B \-t
+option by saying that spaces in the input will not be ignored at this
+position, and an identifier delimiter is not required here.
+If neither of these options is being used, then it has no effect.
+.TP
 \fB\eL\fP
 Line mode -- following arguments can't cross line boundary
 .TP
@@ -692,7 +761,7 @@ Text characters, including all printing characters and white space
 Universal (matches anything except end-of-file)
 .TP
 .B <W>
-Word (letters and apostrophe)
+Word (letters, apostrophe, and hyphen)
 .TP
 .B <X>
 hexadecimal digits
@@ -933,19 +1002,20 @@ Set internationalization locale, using
 This may affect which characters are considered to be letters, and the
 format of times and dates.  No result value.
 .TP
+.BI @set-parm{ name ; value }
+Set a string-valued option, either "idchars", "filechars", or "backup".
+No result value.
+.TP
 .BI @set-switch{ name ; value }
 Set one of the following options to 1 for true or 0 for false:
 "line" for line mode, "b" for binary mode, "k" to keep going after errors,
-"match" for match-only mode, or "i" for case-insensitive mode.
+"match" for match-only mode, "i" for case-insensitive mode,
+"w" for whitespace insensitive mode, or "t" for token mode.
 .TP
 .BI @set-syntax{ type ; charset }
 The characters in the second argument will have the same meaning as
 the special character in the first argument, or use one of the following
 type codes: "L" for literal, "I" for ignore, etc.  No result value.
-.TP
-.BI @set-parm{ name ; value }
-Set a string-valued option, either "idchars", "filechars", or "backup".
-No result value.
 .TP
 .BI @set-wrap{ number ; string }
 For
