@@ -11,9 +11,12 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.19  2003/09/06 00:36:03  gray
-/* Don't match empty string at EOF when default rule is ``=@fail''.
+/* Revision 1.20  2003/11/02 00:03:46  gray
+/* Moved some trace-related variable declarations to "pattern.h".
 /*
+ * Revision 1.19  2003/09/06  00:36:03  gray
+ * Don't match empty string at EOF when default rule is ``=@fail''.
+ *
  * Revision 1.18  2001/12/15  20:22:23  gray
  * Clean up compiler warnings.
  *
@@ -186,9 +189,8 @@ boolean trace_switch = FALSE;
 
 #include <stdarg.h>
 #include <limits.h>
-static int trace_indent = 0;
-static struct { int level; long line; int column; int ch; int domain; }
-	trace_enter = {INT_MAX,0,0,0,-1};
+int trace_indent = 0;
+struct trace_enter_struct trace_enter = {INT_MAX,0,0,0,-1};
 static char*
 show_char(int ch) {
   static char buf[6];
@@ -254,7 +256,6 @@ trace( struct mark_struct * mp, trace_kinds kind, const char* format, ... ) {
 #define TRACE_FAILURE(string) if(trace_switch) trace(&marker,FAIL,string)
 
 #else
-#define trace_switch FALSE
 #define TRACE_FAILURE(string)
 #endif
 
