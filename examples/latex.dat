@@ -180,6 +180,7 @@ setcount:*,*=@err{"@file" line @line\: ignored\: \\setcounter\{*\}\{*\}\n}
 \\begin\W\{center\}=\<BLOCKQUOTE\>
 \\end\W\{center\}=\</BLOCKQUOTE\>
 \\author\W\{#\}=\<BLOCKQUOTE\>#\</BLOCKQUOTE\>
+\\date\W\{#\}=\<BLOCKQUOTE\>#\</BLOCKQUOTE\>
 
 \\begin\W\{sloppypar\}=\<P\>
 \\end\W\{sloppypar\}=\<P\>
