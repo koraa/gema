@@ -43,7 +43,7 @@ argument (up to the next argument, or the end of the template, or
 
 In an action, it denotes the value of the corresponding template argument.
 \item[{\tt <}{\it name}{\tt >}]
-Recursive argument, translated according the the named domain,
+Recursive argument, translated according the named domain,
 or a pre-defined recognizer argument.  The name may be empty to denote
 the default domain.
 The name does not have to have been defined before it is referenced.
@@ -92,7 +92,7 @@ to not begin with a digit.  An error is reported if the variable is not
 defined.
 \item[{\tt \$\ttlb }{\it name}{\tt ;}{\it default}{\tt \ttrb }]
 In an action, this outputs the value of the named variable, if it is
-defined, or evaluates the default action if the the variable is not defined.
+defined, or evaluates the default action if the variable is not defined.
 \item[{\tt $\backslash$ }]
 Escape character; see the section on ``escape sequences'' below.
 \item[\tt \ttcaret]
@@ -223,7 +223,7 @@ fail if the text following the parenthesis doesn't match ``\verb/ done/''.
 This does not yet work for ``\verb/*/'' arguments.
 
 If ``\verb/\G/'' immediately follows a recursive argument, then there is no
-delimiter, and the the argument will continue to accept characters until it
+delimiter, and the argument will continue to accept characters until it
 stops itself by executing \verb/@end/ or \verb/@terminate/.
 \item[{\tt $\backslash$I}]
 Identifier separator.  In a template, this matches an empty string if it
@@ -279,7 +279,8 @@ Word separator.  In a template, this matches an empty string if it is
 not within a word.  In this context, a word consists of letters and digits.
 \item[{\tt $\backslash$Z}]
 Matches the end of the input data, either the end of a file
-or the end of the argument for a domain used as a function.
+or the end of the argument for a domain used as a function,
+or a look-ahead match of the terminating string for a recursive argument.
 \end{description}
 
 
@@ -316,8 +317,12 @@ Graphic characters, i.e. any non-space printable character
 \item[{\tt <I>}]
 Identifier.  By default, an identifier consists of letters, digits, and
 underscores.  See the \verb/-idchars/ option.
+\item[{\tt <J>}]
+lower case letters (in version 1.2 or later)
+\item[{\tt <K>}]
+upper case letters (in version 1.2 or later)
 \item[{\tt <L>}]
-Letters
+Letters (either upper or lower case)
 \item[{\tt <N>}]
 Number, i.e. digits with optional sign and decimal point
 \item[{\tt <O>}]
