@@ -1,8 +1,8 @@
 !  Convert LaTeX to HTML
+! $Id$
 
 ! Unfinished business:
 !	title
-!	reference anchor at beginning of figure instead of following.
 !	vertical lines in tabular environment
 
 @set{Part;0}@set{chapter;0}
@@ -106,7 +106,7 @@ basic:\"=\&quot\;
 \\part\W\{#\}=@incr{Part}\<H2\>Part ${Part}\</H2\>\<H1\>#\</H1\>@append{contents;\<P\>\nPart ${Part}\: $1\<P\>\n}
 
 \\chapter\W\{#\}=@incr{chapter}@set{C;${chapter}.}@set{cursec;${chapter}}\
-	@set{S;0}@set{SS;0}\
+	@set{S;0}@set{SS;0}@set{F;0}@set{T;0}\
 	\<H2\>Chapter ${chapter}\</H2\>\
 	\<H1\>\<A NAME\="${chapter}@cmpname{$1}"\>$1\</A\></H1\>\
 	@append{contents;\<P\>\n\
@@ -158,6 +158,7 @@ setcount:*,*=@err{"@file" line @line\: ignored\: \\setcounter\{*\}\{*\}\n}
 \\begin\W\{description\}=\<DL\>
 \\item\W\[-\]=\<LI\>
 \\item\W\[--\]=\<LI\>
+\\item\W\[\]=\<LI\>
 \\item\W\[#\]=\<DT\>#\<DD\>
 \\item\{#\}=\<DT\>#\<DD\>
 \\end\W\{description\}=\</DL\>
@@ -242,10 +243,15 @@ argsubst:\\\#<D1>=\$$1
 :\\newcommand\W\{*\}\W\[1\]\W\{\W\}=@define{@quote{$1}\\W\\\{\<matchbrace\>\\\}=}
 :\\renewcommand\W\{*\}\W\{<matchbrace>\}=@define{@quote{$1}\<sep\>\=@quote{@{$2}}}
 \\newenvironment\W\{*\}\{<matchbrace>\}\W\{<matchbrace>\}=@define{@quote{\\begin\{$1\}}=\@\{@quote{$2}\}}@define{@quote{\\end\{$1\}}=\@\{@quote{$3}\}}
+
+\\chardef\\<I>\=\`\\?=@define{@quote{\\$1}\<sep\>=@quote{@basic{?}}}
+
 matchbrace:\{#\}=\{#\}
+matchbrace:\\<Y1>=\\$1
+matchbrace:\\verb<-L1>\L*$1=$0
 
 !:\\label\{*\}\W# = \<A NAME\="@basic{*}"\>#\</A\> ;
-:\\label\W\{*\}= \<A NAME\="@basic{*}"\>\xA0</A\> \
+:\\label\W\{*\}= \<A NAME\="@basic{*}"\>\xA0\</A\> \
 @set{$1\#;${cursec}}@set{$1\!;@outpath}\
 @set{opath;@outpath}\
 @write{${labelpath};\N\@set\{@quote{$1}\\\#\;${cursec}\}\@set\{@quote{$1}\\\!\;@quote{${opath}}\}\n};
@@ -288,14 +294,25 @@ sep:\n=@end
 sep:\I=@end
 sep:=@fail
 
-\\begin\W\{table<optask>\}\[*\]=@incr{T}@set{caption;Table $C$T}@bind{cursec;$C$T}
-\\begin\W\{table<optask>\}=@incr{T}@set{caption;Table $C$T}@bind{cursec;$C$T}
+\\begin\W\{table<optask>\}<optbrack>*\\end\W\{table$1\}=\
+	@incr{T}@set{caption;Table $C$T}@bind{cursec;$C$T}\
+	@table-body{*}@unbind{cursec}
+\\begin\W\{figure<optask>\}<optbrack>*\\end\W\{figure$1\}=\
+	@incr{F}@set{caption;Figure $C$F}@bind{cursec;$C$F}\
+	@table-body{*}@unbind{cursec}
+! if there is a label, move it to the top.
+table-body:*\\label\W\{*\}*=@{\\label\{$2\}$1$3}
+table-body:*=@{*}
+
+\\begin\W\{table<optask>\}<optbrack>=@incr{T}@set{caption;Table $C$T}\
+	@bind{cursec;$C$T}
 \\end\W\{table<optask>\}=@unbind{cursec}
-\\begin\W\{figure<optask>\}\[*\]=@incr{F}@set{caption;Figure $C$F}@bind{cursec;$C$F}
-\\begin\W\{figure<optask>\}=@incr{F}@set{caption;Figure $C$F}@bind{cursec;$C$F}
+\\begin\W\{figure<optask>\}<optbrack>=@incr{F}@set{caption;Figure $C$F}\
+	@bind{cursec;$C$F}
 \\end\W\{figure<optask>\}=@unbind{cursec}
 \\caption\W\{#\}=\<BR\>\<BLOCKQUOTE\>@var{caption}\: #</BLOCKQUOTE\>
-optask:\*=\*@end;=@end
+optask:\*=\*@end;=@end!	optional asterisk
+optbrack:\W\[<>\]=@end;=@end! optional brackets
 
 \\TeX<sep>=TeX
 \\LaTeX<sep>=LaTeX
