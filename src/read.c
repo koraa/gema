@@ -1257,6 +1257,9 @@ dispatch:
 	     bp = prev_bp;
 	   }
 	 }
+	 else if ( *start_bp == *prev_bp && *prev_bp == PT_ID_DELIM )
+	   /* delete redundancy */
+	   bp = start_bp;
        continue;
     }
     case PI_IGNORED_SPACE:
@@ -1291,6 +1294,7 @@ dispatch:
     	   }
 	if ( char_table[cis_peek(s)] != PI_LITERAL ) {
 	  *bp++ = ch;
+	  start_bp = bp;
 	  pc = PT_ID_DELIM;
 	  break;
 	}
@@ -1613,6 +1617,9 @@ install_pattern( const unsigned char* template, Pattern pat,
   if ( key == PT_SKIP_WHITE_SPACE || key == PT_SPACE ) {
       install_pattern_for_key( ' ', rest, copy_pattern(pat), patset );
       install_pattern_for_key( '\t', rest, copy_pattern(pat), patset );
+#if '\r' != '\n'
+      install_pattern_for_key( '\r', rest, copy_pattern(pat), patset );
+#endif
       if ( pat->pattern[0] != PT_LINE && rest[0] != PT_LINE &&
   	   !line_mode && !(pat->pattern[0] == PT_AUX &&
   		           pat->pattern[1] == PTX_ONE_LINE ) ) {
