@@ -12,6 +12,10 @@
 
 /*
  * $Log$
+ * Revision 1.14  2004/09/18 22:57:05  dngray
+ * Allow MAX_DOMAINS to be larger than 255
+ * (merged changes contributed by Alex Karahalios).
+ *
  * Revision 1.13  2003/12/01 18:58:16  gray
  * Fix a flaw in @set-syntax that affects optimized Microsoft compile.
  *
@@ -322,7 +326,11 @@ skip_action( const unsigned char* action) {
 	break;
 
       case PT_DOMAIN:
+#if MAX_DOMAINS < 256
 	as = skip_action( as+1 );
+#else
+        as = skip_action( as+2 );	/* +2 since domains take up 2 bytes */
+#endif
 	break;
       case PT_OP: {
 	int n;
@@ -392,7 +400,13 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
       case PT_DOMAIN: {
 	CIStream inbuf;
 	Pattern save_rule = current_rule;
+#if MAX_DOMAINS < 256
 	int domain = *as++ - 1;
+#else
+	/* Get domain index as 14 bit little endian number */
+        int domain = ((unsigned char)*as++)&0x7f;
+        domain = ((((unsigned char)*as++)&0x7f)<<7) | domain;
+#endif
         if ( as[0] == PT_VAR1 ||
              ( as[0] == PT_OP &&
 	       ( as[1] == OP_VAR || as[1] == OP_VAR_DFLT ) ) ) {
@@ -455,9 +469,14 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	break;
 
       case PT_SPECIAL_ARG:
+#if MAX_DOMAINS >= 256 /* advance one more since  2 bytes for domain index */
+      case PT_RECUR:
+#endif
 	as++;
       case PT_REGEXP:
+#if MAX_DOMAINS < 256
       case PT_RECUR:
+#endif
 	as++;
       case PT_MATCH_ANY:
       case PT_MATCH_ONE: {

@@ -10,10 +10,15 @@
   an acknowledgment of the original source.
  *********************************************************************/
 
-/* $Log$
-/* Revision 1.20  2003/11/02 00:03:46  gray
-/* Moved some trace-related variable declarations to "pattern.h".
 /*
+ * $Log$
+ * Revision 1.21  2004/09/18 22:57:06  dngray
+ * Allow MAX_DOMAINS to be larger than 255
+ * (merged changes contributed by Alex Karahalios).
+ *
+ * Revision 1.20  2003/11/02  00:03:46  gray
+ * Moved some trace-related variable declarations to "pattern.h".
+ *
  * Revision 1.19  2003/09/06  00:36:03  gray
  * Don't match empty string at EOF when default rule is ``=@fail''.
  *
@@ -392,7 +397,13 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	goto success;
       assert( next_arg[0] == NULL );
       outbuf = make_buffer_output_stream();
+#if MAX_DOMAINS < 256
       domain = *++ps - 1;
+#else
+      /* Get domain index as 14 bit little endian number */
+      domain = ((unsigned char)*++ps)&0x7f;
+      domain = ((((unsigned char)*++ps)&0x7f)<<7) | domain;
+#endif
       if ( !marker.marked ) {
 	cis_mark(in,&marker.start);
 	marker.marked = TRUE;

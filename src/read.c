@@ -10,11 +10,16 @@
   an acknowledgment of the original source.
  *********************************************************************/
 
-/* $Log$
-/* Revision 1.19  2001/12/15 20:22:44  gray
-/* Modify use of hex character constants to work-around a compiler bug on
-/* DEC Alpha OSF1.  Clean up compiler warnings..
-/*
+/* 
+ * $Log$
+ * Revision 1.20  2004/09/18 22:57:06  dngray
+ * Allow MAX_DOMAINS to be larger than 255
+ * (merged changes contributed by Alex Karahalios).
+ *
+ * Revision 1.19  2001/12/15  20:22:44  gray
+ * Modify use of hex character constants to work-around a compiler bug on
+ * DEC Alpha OSF1.  Clean up compiler warnings..
+ *
  * Revision 1.18  2001/09/30  23:10:20  gray
  * Fix uninitialized variable in skip_comment.
  *
@@ -254,7 +259,9 @@ boolean set_syntax( int type, const char* char_set ) {
 #endif
 
 int ndomains = 0;
-
+#if MAX_DOMAINS > (1<<14)
+  #error "MAX_DOMAINS is too large; must fit in 14 bits."
+#endif
 Domain domains[MAX_DOMAINS] = { NULL };
 
 char* trim_name( unsigned char* x ) {
@@ -945,7 +952,12 @@ charop: {
 #if 1
 		  int domain = find_domain(name);
 	          *ap++ = PT_DOMAIN;
+#if MAX_DOMAINS < 256
 		  *ap++ = (unsigned char)(domain + 1);
+#else
+                  *ap++ = (unsigned char)((domain & 0x7f)|0x80);
+                  *ap++ = (unsigned char)(((domain>>7) & 0x7f)|0x80);
+#endif
 		  if ( char_kind(xc) == PI_BEGIN_ARG ) {
 		    int term_kind;
 		    int term_char;
@@ -1267,7 +1279,11 @@ dispatch:
 		"Domain change \"%s%c\" not allowed in temporary pattern.\n",
       		name, ch);
 	else
+#if MAX_DOMAINS < 256
 	*domainpt = name[0] == PT_RECUR ? name[1]-1 : find_domain( name );
+#else
+	*domainpt = name[0] == PT_RECUR ? (unsigned int)(name[1]&0x7f) | (unsigned int)((name[2]&0x7f)<<7) : find_domain( name );
+#endif
 	bp = pbuf;
 	domain_seen = TRUE;
 	continue;
@@ -1309,15 +1325,30 @@ dispatch:
 	nargs++;
 	arg_keys[nargs] = (unsigned char)ch;
 	if ( kind == PI_RARG ) {
-	  pc = *domainpt + 1;
+	  int domain = *domainpt;
 	  *bp++ = PT_RECUR;
+#if MAX_DOMAINS < 256
+	  pc = domain + 1;
+#else
+	  /* Save low byte of domain index */
+	  *bp++ = (unsigned char)((domain &0x7f)|0x80);
+	  pc = ((domain>>7) & 0x7f)|0x80;
+#endif
 	}
 	else if ( kind == PI_ABBREV_DOMAIN ) {
+	  int domain;
 	  char aname[2];
 	  aname[0] = ch;
 	  aname[1] = '\0';
-	  pc = 1 + find_domain(aname);
+	  domain = find_domain(aname);
 	  *bp++ = PT_RECUR;
+#if MAX_DOMAINS < 256
+	  pc = 1 + domain;
+#else
+	  /* Save low byte of domain index */
+	  *bp++ = (unsigned char)((domain &0x7f)|0x80);
+	  pc = (((unsigned int)domain>>7) & 0x7f)|0x80;
+#endif
 	}
 	else if ( kind == PI_BEGIN_DOMAIN_ARG ) {
 	  int xc;
@@ -1361,8 +1392,15 @@ dispatch:
 		*bp++ = parms;
 	      }
 	      else {  /* user-defined domain */
-	        pc = 1 + find_domain( dname );
+		int domain = find_domain( dname );
 	        *bp++ = PT_RECUR;
+#if MAX_DOMAINS < 256
+	        pc = 1 + domain;
+#else
+		/* Save low byte of domain index */
+		*bp++ = (unsigned char)((domain & 0x7f)|0x80);
+		pc = ((domain>>7) & 0x7f)|0x80;
+#endif
 	      }
 	      break;
 	    }
@@ -1870,7 +1908,14 @@ install_pattern( const unsigned char* template, Pattern pat,
   if ( key == PT_QUOTE )
     key = *rest++;
   else if ( is_operator(key) ) {
-    if ( key == PT_RECUR && patset == &domains[rest[0]-1]->patterns )
+    if ( key == PT_RECUR
+#if MAX_DOMAINS < 256
+	 && patset == &domains[rest[0]-1]->patterns
+#else
+	 && patset == &domains[(unsigned int)(rest[0]&0x7f)
+			      |(unsigned int)((rest[1]&0x7f)<<7)]->patterns
+#endif
+	 )
       /* template beginning with recursive arg in same domain is
 	 going to get stack overflow */
       input_error(input_stream, EXS_SYNTAX, "Unbounded recursion.\n");
