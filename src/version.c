@@ -1,4 +1,3 @@
-
 /* $Id$ */
 
 /*      Version identification string
@@ -12,4 +11,4 @@
 	can be distinguished from the original version.
  */
 
-const char what_string [] = "@(#)gema 1.0 March 18, 1995";
+const char what_string [] = "@(#)gema 1.1 May 6, 1995";
