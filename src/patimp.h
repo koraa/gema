@@ -111,6 +111,7 @@ enum Operators {
  OP_CLOSE,		/* close alternate output file */
  OP_MODTIME,		/* modification time of input file */
  OP_OUTFILE,		/* name of output file */
+ OP_OUTCOL,		/* current column number in output file */
  OP_MERGEPATH,		/* merge pathnames, dir of 1st, name of 2nd */
  OP_COMBINEPATH,	/* args are directory, name, and type */
  OP_RELPATH,		/* relative pathname (2nd arg in dir of 1st) */
@@ -133,6 +134,7 @@ enum Operators {
  OP_SHELL,		/* execute a shell command */
  OP_EXIT_STATUS,	/* set program termination code */
  OP_SET_SWITCH,		/* set numeric program option */
+ OP_GET_SWITCH,		/* get value of numeric program option */
  OP_SET_PARM,		/* set program parameter with string value */
  OP_SYNTAX,		/* change syntax type of characters */
  OP_DEFAULT_SYNTAX,	/* restore default syntax table */
