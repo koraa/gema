@@ -24,7 +24,8 @@ EXS_MEM 	/* out of memory */
 
 extern Exit_States exit_status;
 
-extern const char Version[];
+extern const char what_string[];
+#define Version what_string+4
 
 boolean
 set_switch(const char* name, boolean value);
