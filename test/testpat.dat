@@ -1,6 +1,7 @@
 !  test patterns
 
-^M\N=;
+! $Header$
+
 \Iwo\I=ya
 \L(*\W+\W*)=\NADD *,*\n
 \N\Wend\W\N=\N\tStop\!\N
@@ -30,7 +31,7 @@ cmtb:\/\*<cmtb>\*\/=\/\*$1\*\/
 tic <xo> tac=Tic Tac\: \"$1\"
  :\[\L*<xo>*\]=\[\"${1}\", \"${2}\", \"${003}\"\]
 :\Iand\W<dots> =and etc. ;
-<dots>:\.=\.;?=@fail{};
+<dots>:\.=\.;?=@terminate{};
 
 Quote(*)='@quote{*}'
 
@@ -51,7 +52,7 @@ comma:<D1><D3><-D0>=$1,$2!
 
 :\\verb?*$1=\<TT\>$2\</TT\>
 
-incroman:\Ji\Z=ii;\Jiii\Z=iv;\Jiv\Z=v;\Jv\Z=vi;\Jviii\Z=ix;\Jix\Z=x;\Jx\Z=xi;\Jxix\Z=xx;
+incroman:i\Z=ii;iii\Z=iv;iv\Z=v;v\Z=vi;viii\Z=ix;ix\Z=x;x\Z=xi;xix\Z=xx;
 :\@begin\W(\Wroman_list\W)=@set{rn;i}
 :\@roman_item =\N\ \(${rn}\) \
 	@set{rn;@incroman{${rn}}}
@@ -83,7 +84,7 @@ optarg:\N=@end
 optarg:\L\S=@end
 argbody:""=";"=@end;\N=@fail;?=?
 
-\@Bunch\:\W*\P\@=[bunch]\n
+\@Bunch\:\W*\W\P\@=[bunch]\n
 
 ack(<P4>.*)=ack(`$1',`$2')
 nack(<p4>.*)=nack(`$1',`$2')
