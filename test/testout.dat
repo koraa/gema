@@ -96,6 +96,7 @@ LDTSC
  text(	.) universal( )
  graphic(%?)
  word(co-op)
+(1 a, 2 b, 3 c, (1 x, 2 y) 4 d, 5 e)
 --------------------
 
 (- b c)

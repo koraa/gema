@@ -86,6 +86,7 @@ watch(this and wo)
 @Cgroups( 	. )
 @Cgroups( %? )
 @Cgroups( co-op )
+@Count(a b c (x y) d e)
 @Line
 @Lisp: b-c
 @Lisp: (a*b)-c

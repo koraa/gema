@@ -147,3 +147,10 @@ wr2:<G>=@wrap{ $1};\S=;
 
 \@3Spaces=   ;
 \@Rem*\n=;
+\@Count\W(<counted-items>)=($1)
+counted-items:\A=@bind{count;0}
+counted-items:\Z=@unbind{count}
+counted-items:\S=
+counted-items:<I>\W\Z=@incr{count}${count} $1
+counted-items:<I>\W=@incr{count}${count} $1,\s
+counted-items:(<counted-items>)=($1)\s
