@@ -190,7 +190,10 @@ struct domain_struct {
   Domain inherits;
 };
 
-#define MAX_DOMAINS 200
+/* Maximum number of domains.  This may be modified as needed. */
+#ifndef MAX_DOMAINS
+#define MAX_DOMAINS 240
+#endif
 
 extern int ndomains;
 
