@@ -50,6 +50,7 @@
 #define PTX_NO_CASE '\6'	/* case insensitive mode for this template */
 #define PTX_POSITION '\7'	/* mark ending position of input stream */
 #define PTX_NO_GOAL '\x08'	/* don't use rest as argument terminator */
+#define PTX_JOIN '\x09'		/* concatenate (override token mode) */
 
 enum Operators {
  OP_NONE, /* skip 0 */
