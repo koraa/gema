@@ -3,6 +3,13 @@
 
 /* $Id$ */
 
+/*********************************************************************
+  This file is part of "gema", the general-purpose macro translator,
+  written by David N. Gray <dgray@acm.org> in 1994 and 1995.
+  You may do whatever you like with this, so long as you retain
+  an acknowledgment of the original source.
+ *********************************************************************/
+
 #include "pattern.h"
 
 /* special characters used internally: */
