@@ -11,9 +11,14 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.12  1995/07/27 05:31:34  gray
-/* Fix a couple of problems with spaces with "-w".
+/* Revision 1.13  1995/08/06 02:26:47  gray
+/* Fix bug on "\A" (regression in previous version).
+/* Add "<J>" (match lower case) and "<K>" (match upper case).
+/* Support @set-syntax{M;\'} for quoting a string.
 /*
+ * Revision 1.12  1995/07/27  05:31:34  gray
+ * Fix a couple of problems with spaces with "-w".
+ *
  * Revision 1.11  1995/07/27  03:00:45  gray
  * Fix handling of "\B" followed by an argument instead of a literal.
  *
@@ -78,13 +83,14 @@ enum char_kinds {
   PI_ABBREV_DOMAIN, /* single-character recursive argument domain */
   PI_IGNORE,	/* character that is completely ignored */
   PI_IGNORED_SPACE, /* ignored unless needed as delimiter */
+  PI_QUOTE_STRING, /* take characters literally until matching quote */
   PI_EOF,	/* end of file */
   Num_Char_Kinds	/* must be last element of enumeration */
 };
 
 #define NUMCHAR 256
 static unsigned char default_syntax_chars[Num_Char_Kinds+1] =
-		 ".\1\r*?#=$\\\\^ {;};:<>//@@!\0\0\0\0";
+		 ".\1\r*?#=$\\\\^ {;};:<>//@@!\0\0\0\0\0";
 static unsigned char syntax_chars[Num_Char_Kinds+1];
 
 static char char_table[NUMCHAR] = {
@@ -159,6 +165,7 @@ boolean set_syntax( int type, const char* char_set ) {
   switch(toupper(type)) {
     case 'L': k = PI_LITERAL; break;
     case 'Q': k = PI_QUOTE; break;
+    case 'M': k = PI_QUOTE_STRING; break;
     case 'E': k = PI_ESC; break;
     case 'C': k = PI_COMMENT; break;
     case 'A': k = PI_ARG_SEP; break;
@@ -988,6 +995,20 @@ charop: {
       		ch, cis_prevch(s) );
 	 continue;
        }
+
+      case PI_QUOTE_STRING:
+	for ( ; ; ) {
+	  pc = cis_getch(s);
+	  if ( pc == ch )
+	    break;
+	  if ( pc == '\n' ) {
+	    input_error(s, EXS_SYNTAX, "Unmatched %c\n", ch );
+	    break;
+	  }
+	  *ap++ = (unsigned char)pc;
+	}
+	continue;
+      
 #ifndef MSDOS
 #if '\r' != '\n'
       case PI_CR:
@@ -1249,7 +1270,7 @@ dispatch:
 	               ( rname[2] == '\0' ||
 	    		 ( isdigit(rname[2]) && rname[3] == '\0' ) ) ) ) &&
 	    	   isalpha(rname[0]) &&
-	    	   strchr("DLAWIFGCSOXNPTUVY",toupper(rname[0])) != NULL ) {
+	    	   strchr("DLJKAWIFGCSOXNPTUVY",toupper(rname[0])) != NULL ) {
 		/* built-in domains with single-letter names */
 		unsigned parms;
 		parms = inverse | (toupper(rname[0]) - ('A'-1));
@@ -1345,6 +1366,20 @@ dispatch:
 	   bp = start_bp;
        continue;
     }
+
+    case PI_QUOTE_STRING:
+      for ( ; ; ) {
+	pc = cis_getch(s);
+	if ( pc == ch )
+	  break;
+	if ( pc == '\n' ) {
+	  input_error(s, EXS_SYNTAX, "Unmatched %c\n", ch );
+	  break;
+	}
+	*bp++ = (unsigned char)pc;
+      }
+      continue;
+
     case PI_IGNORED_SPACE: {
         int nextch;
       	while ( char_table[nextch = cis_peek(s)] == PI_IGNORED_SPACE )
@@ -1754,7 +1789,7 @@ int read_patterns ( CIStream s, const char* default_domain,
   domain = top;
   while ( NULL != (pat = read_pattern(s, &domain, top, undef)) ) {
     const unsigned char* ps = pat->pattern;
-    if ( ps[0] == PT_AUX && !literal_key(ps+2) &&
+    if ( ps[0] == PT_AUX &&
   	 ( ps[1] == PTX_INIT || ps[1] == PTX_BEGIN_FILE ||
 	   ps[1] == PTX_FINAL || ps[1] == PTX_END_FILE ) ) {
       Pattern* opp = &domains[domain]->init_and_final_patterns;
