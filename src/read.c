@@ -957,7 +957,7 @@ charop: {
       case PI_QUOTE:
       case PI_ESC: {
 	 unsigned char* sp;
-	 sp = ap;
+	 sp = ap;  *sp = '\0';
 	 ap = escaped_char(ch,ap,s);
 	 if ( *sp == PT_AUX )
 	   input_error(s, EXS_OK,
