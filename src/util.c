@@ -93,6 +93,13 @@ relative_pathname(const char* relative_to, const char* file_path) {
   else return file_path;
 }
 
+const char*
+canonicalize_path(const char* path) {
+  if ( path[0] == '.' && path[1] == DirDelim )
+    return path+2;	/*   "./foo" -> "foo"   */
+  else return path;
+}
+
 #ifndef HAS_STRICMP
 #include <ctype.h>
 

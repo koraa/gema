@@ -39,6 +39,9 @@ is_absolute_pathname(const char* path);
 const char*
 relative_pathname(const char* relative_to, const char* file_path);
 
+const char*
+canonicalize_path(const char* path);
+
 
 #ifdef MSDOS
 #define HAS_STRICMP
