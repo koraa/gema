@@ -55,6 +55,7 @@ basic:\"=\&quot\;
 \I--- =-- ;
 \I-- =- ;
 \\\\=\<BR\>
+\\newline<sep>=\<BR\>
 \\linebreak\[4\]=\<BR\>
 \\linebreak\[?\]=
 \\linebreak<sep>=\<BR\>
