@@ -5,14 +5,17 @@
 /*********************************************************************
   This file is part of "gema", the general-purpose macro translator,
   written by David N. Gray <dgray@acm.org> in 1994 and 1995.
-  Adapted for the Macintosh by David A. Mundie <mundie@telerama.lm.com>.
+  Adapted for the Macintosh by David A. Mundie <mundie@anthus.com>.
   You may do whatever you like with this, so long as you retain
   an acknowledgment of the original source.
  *********************************************************************/
 
 /*
  * $Log$
- * Revision 1.11  2002/02/17 00:29:39  gray
+ * Revision 1.12  2002/02/17 01:17:58  gray
+ * Prevent a reference outside of array -- fix contributed by Alex Karahalios.
+ *
+ * Revision 1.11  2002/02/17  00:29:39  gray
  * On Windows 95 and later, append ".bak" like on Unix instead of replacing
  * the extension like on MS-DOS.
  *
@@ -173,7 +176,7 @@ int cis_getch(CIStream s){
       }
       return EOF;
     }
-    if ( s->next[-1] == '\n' ) {
+    if ( s->next == s->start || s->next[-1] == '\n' ) {
       s->line++;
       s->column = 1;
     }
