@@ -1,3 +1,6 @@
+
+/* $Id$ */
+
 #ifndef UTIL_H
 #define UTIL_H
 
@@ -14,6 +17,7 @@ void* allocate( size_t size, Memory_Kinds what );
 char* str_dup( const char* x ); /* return new copy of string */
 char* str_dup_len( const char* x, int len );
 
+/* directory delimiter character */
 #ifdef MSDOS
 #define DirDelim '\\'
 #else   /* assume Unix */
@@ -34,6 +38,16 @@ is_absolute_pathname(const char* path);
 
 const char*
 relative_pathname(const char* relative_to, const char* file_path);
+
+
+#ifdef MSDOS
+#define HAS_STRICMP
+#endif
+
+#ifndef HAS_STRICMP
+/* unless already provided in the compiler's library */
+int stricmp (const char* s1, const char* s2);
+#endif
 
 #endif
 
