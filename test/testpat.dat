@@ -1,6 +1,6 @@
 !  test patterns
 
-! $Header$
+! $Id$
 
 \Iwo\I=ya
 \L(*\W+\W*)=\NADD *,*\n
@@ -153,3 +153,15 @@ counted-items:\Z=@unbind{count}
 counted-items:<I>\W\Z=@incr{count}${count} $1
 counted-items:<I>\W=@incr{count}${count} $1,\s
 counted-items:(<counted-items>)=($1)
+
+\/\/\L Tiger\n=\NTiger\!\n
+\/\/\L Lion\n=\NLion\!\n
+\/\/*\n=\N[default comment]\n
+
+\@It(*)=@set{Q;*}
+Is it $Q\?=Yes it is $Q.
+Is it *\?=No it is not *.
+Hit <i>$Q<i>=Hit $1[It]$2
+Swat <expr>$Q=Swat $1[It]
+! The next rule is a duplicate, but shouldn't do any harm.
+\N\Wend\W\N=\N\tStop\!\N

@@ -1,6 +1,6 @@
 !  test patterns, this version for use with "-t" option (token mode).
 
-! $Header$
+! $Id$
 
 wo=ya
 \L(*\W+\W*)=\NADD *,*\n
@@ -154,3 +154,13 @@ counted-items:\S=
 counted-items:<I>\W\Z=@incr{count}${count} $1
 counted-items:<I>\W=@incr{count}${count} $1,\s
 counted-items:(<counted-items>)=($1)\s
+
+\/\/\L Tiger\n=\NTiger\!\n
+\/\/\L Lion\n=\NLion\!\n
+\/\/*\n=\N[default comment]\n
+
+\@It(*)=@set{Q;*}
+Is it $Q\?=Yes it is $Q.
+Is it *\?=No it is not *.
+Hit <i>\J$Q\J<i>=Hit $1[It]$2
+Swat <expr>\J$Q=Swat $1[It]
