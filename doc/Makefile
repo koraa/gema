@@ -7,16 +7,16 @@ all: doc.ps gema.ps doc.html gema.html gema.lpr
 
 TEXFILES = doc.tex overview.tex notation.tex function.tex conclude.tex
 
-doc.dvi: ${TEXFILES}
+doc.dvi: $(TEXFILES)
 	latex doc.tex || rm -f doc.dvi
 
 doc.ps: doc.dvi
-	dvi2ps doc.dvi > $@
+	dvi2ps doc.dvi > $@ || dvips doc.dvi -o $@
 
 view: doc.dvi
 	xtex doc.dvi &
 
-doc.html: ${TEXFILES} latex-to-html
+doc.html: $(TEXFILES) latex-to-html
 	./latex-to-html doc.tex $@
 
 latex-to-html:
