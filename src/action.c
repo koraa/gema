@@ -12,7 +12,10 @@
 
 /*
  * $Log$
- * Revision 1.12  2003/11/02 00:03:56  gray
+ * Revision 1.13  2003/12/01 18:58:16  gray
+ * Fix a flaw in @set-syntax that affects optimized Microsoft compile.
+ *
+ * Revision 1.12  2003/11/02  00:03:56  gray
  * Add trace printout of domain call.
  *
  * Revision 1.11  2001/12/31  01:35:22  gray
@@ -1027,10 +1030,10 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	  charset = cis_whole_string(val);
 	  for ( type = cis_whole_string(inbuf) ; *type != '\0' ; type++ ) {
 	    const char* chars;
+	    char c[2];
 	    if ( type[1] == '\0' )
 	      chars = charset;
 	    else {
-	      char c[2];
 	      c[0] = *charset++;
 	      c[1] = '\0';
 	      chars = c;
