@@ -12,7 +12,10 @@
 
 /*
  * $Log$
- * Revision 1.10  2001/12/15 20:21:06  gray
+ * Revision 1.11  2001/12/31 01:35:22  gray
+ * Flush stdout before invoking @shell command.
+ *
+ * Revision 1.10  2001/12/15  20:21:06  gray
  * Clean up compiler warnings.
  *
  * Revision 1.9  1996/04/08  05:04:50  gray
@@ -920,6 +923,7 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	  const char* command;
 	  inbuf = function_operand( &as, args );
 	  command = cis_whole_string(inbuf);
+	  fflush(stdout);
 	  if ( system( command ) < 0 ) {
 	    input_error ( input_stream, EXS_SHELL,
 	  		 "Failed shell command \"%.20s...\":\n", command );
