@@ -98,7 +98,11 @@ set_parm(const char* name, const char* value) {
 #ifdef __TURBOC__
 #include <dir.h>
 #endif
+#ifdef _WIN32
+#include <io.h>
+#else
 #include <dos.h>
+#endif
 #endif /* MSDOS */
 
 void
@@ -107,7 +111,7 @@ expand_wildcard ( const char* file_spec, COStream out ) {
     (On Unix, this is not needed because expansion is done by the shell.)
  */
 #ifdef MSDOS
-#if defined(_FIND_T_DEFINED)  /* Microsoft C */
+#if defined(_FIND_T_DEFINED)  /* Microsoft C on MS-DOS */
   struct _find_t fblk;
   if ( _dos_findfirst( file_spec, _A_NORMAL|_A_ARCH|_A_RDONLY, &fblk )
        == 0 ) {
@@ -117,6 +121,22 @@ expand_wildcard ( const char* file_spec, COStream out ) {
       cos_putch( out, '\n' );
     }
     while ( _dos_findnext( &fblk ) == 0 );
+  }
+  else
+#elif defined(_WIN32)  /* Microsoft C/C++ on Windows/NT */
+  struct _finddata_t fblk;
+  long handle;
+  handle = _findfirst( (char*)file_spec, &fblk );
+  if ( handle != -1 ) {
+    /* first match found */
+    do {
+      if ( !(fblk.attrib & _A_SUBDIR) ) {
+	cos_puts( out, fblk.name );
+	cos_putch( out, '\n' );
+      }
+    }
+    while ( _findnext( handle, &fblk ) == 0 );
+    _findclose( handle );
   }
   else
 #elif defined(__TURBOC__)  /* Borland Turbo C */
