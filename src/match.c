@@ -11,10 +11,13 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.14  1995/08/20 05:38:21  gray
-/* Fix handling of empty optional argument in argument terminator.
-/* Add trace messages for matched recognizer and failed "*".
+/* Revision 1.15  1995/08/27 20:46:03  gray
+/* Fix for "\J" preceding empty argument with "-w" but not "-t".
 /*
+ * Revision 1.14  1995/08/20  05:38:21  gray
+ * Fix handling of empty optional argument in argument terminator.
+ * Add trace messages for matched recognizer and failed "*".
+ *
  * Revision 1.13  1995/08/13  05:33:35  gray
  * Fix regression on "*" at end of template.
  *
@@ -690,8 +693,11 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
       case PTX_JOIN:
 	if ( ignore_whitespace ) {
 	  ic = cis_peek(in);
-	  if ( isspace(ic) && ic != ps[1] )
+	  if ( isspace(ic) && ic != ps[1] &&
+	       ( !is_operator(ps[1]) || ps[1] == PT_SPECIAL_ARG ) ) {
+	    TRACE_FAILURE( "\\J" );
 	    goto failure; /* prevent the space from being ignored */
+	  }
 	}
      	break;
 #ifndef NDEBUG
