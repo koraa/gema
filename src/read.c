@@ -11,11 +11,19 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.16  1995/08/27 21:03:46  gray
-/* Fix handling of space between identifiers with "-t" or "-w".
-/* Fix to not be prevented from using dispatch table when template begins with
-/* "\I" or when upper/lower case difference for key.
+/* Revision 1.17  1996/04/08 05:29:56  gray
+/* Fixed initialization of `fnnargs' so that ${varname} always works even when
+/* @var has never been used.  Fixed interaction of comment and continuation
+/* lines.  If the first line of a pattern file begins with "#!", ignore that
+/* line so that pattern files can be made directly executable.  When '=' is
+/* missing, discard incomplete rule to avoid other errors.  Warn when template
+/* begins with recursive argument in same domain (will just overflow stack).
 /*
+ * Revision 1.16  1995/08/27  21:03:46  gray
+ * Fix handling of space between identifiers with "-t" or "-w".
+ * Fix to not be prevented from using dispatch table when template begins with
+ * "\I" or when upper/lower case difference for key.
+ *
  * Revision 1.15  1995/08/20  05:34:40  gray
  * Treat variable in template as literal for argument terminator.
  * Fix to not free patterns installed in multiple places.
@@ -162,19 +170,6 @@ char_kind(int ch){
 }
 #define set_char_kind(ch,k) char_table[ch] = (k)
 #endif
-
-void initialize_syntax(void) {
-  int i;
-  memcpy(syntax_chars, default_syntax_chars, sizeof(syntax_chars));
-  for ( i = 0x20 ; i < NUMCHAR ; i++ )
-    set_char_kind(i,PI_LITERAL);
-  set_char_kind('\n',PI_END);
-  for ( i = 0 ; i < Num_Char_Kinds ; i++ ) {
-    unsigned int ch = syntax_chars[i];
-    if ( ch != '\0' )
-      set_char_kind(ch,i);
-  }
-}
 
 boolean is_operator(int x) {
   return char_kind(x) == PI_LIT_CTRL;
@@ -428,6 +423,12 @@ void pattern_help( FILE* f ) {
   fputs( "\nSee the man page for further details.\n", f );
 }
 
+void
+skip_whitespace( CIStream s ) {
+  while ( isspace(cis_peek(s)) )
+    (void)cis_getch(s);
+}
+
 static unsigned char*
 escaped_char( int ch, unsigned char* bp, CIStream s ) {
       int nc;
@@ -450,8 +451,7 @@ escaped_char( int ch, unsigned char* bp, CIStream s ) {
 #endif
 #endif
 	case '\n': /* ignore new line and leading space on next line */
-		while ( isspace(cis_peek(s)) )
-		  (void)cis_getch(s);
+	  	skip_whitespace(s);
       		return bp;
 	case 'n': pc = '\n'; break;
 	case 't': pc = '\t'; break;
@@ -724,6 +724,24 @@ static struct action_ops {
 /* number of arguments for each built-in function: */
 unsigned char fnnargs[OP_last_op] = { 0 };
 
+void initialize_syntax(void) {
+  int i;
+  memcpy(syntax_chars, default_syntax_chars, sizeof(syntax_chars));
+  for ( i = 0x20 ; i < NUMCHAR ; i++ )
+    set_char_kind(i,PI_LITERAL);
+  set_char_kind('\n',PI_END);
+  for ( i = 0 ; i < Num_Char_Kinds ; i++ ) {
+    unsigned int ch = syntax_chars[i];
+    if ( ch != '\0' )
+      set_char_kind(ch,i);
+  }
+  {
+    const struct action_ops * tp;
+    for ( tp = &action_operators[0] ; tp->name != NULL ; tp++ )
+      fnnargs[tp->code] = tp->nargs;
+  }
+}
+
 #if 0 /* not needed after all */
 static int
 end_delim(int c) {
@@ -807,6 +825,25 @@ read_put( CIStream s, unsigned char** app, int nargs,
   return pc;
 }
 
+static boolean 
+skip_comment( CIStream s ) {
+  int ch;
+  for ( ; ; ) {
+    int nc;
+    nc = cis_getch(s);
+    if ( nc == '\n' || nc == EOF )
+      break;
+    else ch = nc;
+  }
+  if ( char_kind(ch) == PI_ESC ) {
+    /* line ends in "\"; continue with the next line. */
+    /* ignore new line and leading space on next line */
+    skip_whitespace(s);
+    return FALSE;
+  }
+  else return TRUE;
+}
+
 /* maximum length of template or action: */
 #define BUFSIZE 1200
 
@@ -823,13 +860,9 @@ read_action( CIStream s, unsigned char* bp, int nargs,
 dispatch:
       switch ( kind ) {
       case PI_COMMENT: /* ignore rest of line */
-	for ( ; ; ) {
-	    int nc;
-	    nc = cis_getch(s);
-	    if ( nc == '\n' || nc == EOF )
-	        break;
-	}
-	/* and fall-through */
+	if( !skip_comment(s) )
+	  continue;
+	/* else fall-through to end the line */
       case PI_END:
       case PI_ARG_SEP:
       case PI_END_ARG:
@@ -943,7 +976,6 @@ charop: {
 	          *ap++ = PT_OP;
 		  apcode = ap;
 	          *ap++ = tp->code;
-	          fnnargs[tp->code] = tp->nargs;
 		  if ( char_kind(xc) == PI_BEGIN_ARG ) {
 		    (void)cis_getch(s);
 		    for ( ; ; ) {
@@ -981,7 +1013,6 @@ charop: {
 	                else if ( xtp->nargs == n &&
 		      		stricmp(tp->name,xtp->name) == 0 ) {
 		      	  *apcode = xtp->code;
-			  fnnargs[xtp->code] = n;
 			  break;
 		      	}
 	             }
@@ -1148,20 +1179,25 @@ top:
 dispatch:
     switch (kind) {
     case PI_COMMENT: /* ignore rest of line */
-	for ( ; ; ) {
-	    int nc;
-	    nc = cis_getch(s);
-	    if ( nc == '\n' || nc == EOF )
-	        break;
-	}
-	/* and fall-through */
+      if ( pbuf[0] == PT_RECUR && cis_column(s) == 2 && cis_line(s) == 1 )
+	/* As a special case, if the first line begins with "#!", then treat
+	   the whole line as a comment on the assumption that this is an
+	   executable file using "gema" instead of a shell.  For example:
+			#!/usr/local/bin/gema -f
+	   Note that this wouldn't be meaningful as a pattern anyway. */
+	bp = pbuf;
+      if( !skip_comment(s) )
+	continue;
+      /* else fall-through to end line */
     case PI_END:
       if ( bp == pbuf ) /* empty pattern; continue reading */
 	goto top;
       /* else fall-through */
     case PI_EOF:
-      if ( bp != pbuf && !undef )
+      if ( bp != pbuf && !undef ) {
 	input_error(s, EXS_SYNTAX, "Missing '%c'\n", syntax_chars[PI_SEP]);
+	bp = pbuf; /* discard incomplete rule to avoid other errors */
+      }
       /* and fall-through */
     case PI_SEP:
       goto done;
@@ -1820,6 +1856,10 @@ install_pattern( const unsigned char* template, Pattern pat,
   if ( key == PT_QUOTE )
     key = *rest++;
   else if ( is_operator(key) ) {
+    if ( key == PT_RECUR && patset == &domains[rest[0]-1]->patterns )
+      /* template beginning with recursive arg in same domain is
+	 going to get stack overflow */
+      input_error(input_stream, EXS_SYNTAX, "Unbounded recursion.\n");
     chain_pattern( pat, patset, key );
     return;
   }
