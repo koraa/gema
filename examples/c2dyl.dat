@@ -1,0 +1,282 @@
+
+! Preliminary syntax conversion from C (or C++) to Dylan
+
+! 5/28/95
+
+! not handled:
+!  `return'
+!  `break'
+!  `continue'
+!  `goto'
+!  switch case that falls through to next case
+!  unary `*'
+!  `++' and `--'
+!  infix-to-function conversion of `&' and `|'
+!  ... ? ... : ...
+!  compound assignment operators such as `+='
+
+@set-switch{t;1}@set-switch{w;1}
+@set-syntax{L;\-\.\(\)}
+
+ARGV:\N-module <G>\n=@set{module;$1}
+
+ARGV:\N-D\J<I>\=*\n=@define{\\I$1\\I\=@quote{$2}}
+!ARGV:\N-D\J<I>\n=@define{\\I$1\\I\=1}
+
+\B=module\: ${module;dylan-user}\n\n\
+	\/\/ "@outpath" generated @just-date{@datime} by "@getenv{USER}"\n\
+	\/\/ Converted from "@inpath" dated @just-date{@file-time}\n
+
+just-date:<L> <L> <D> <D>\:<D>\:<D> <D>=$2 $3\, $7@end
+just-date:\n=;
+
+@set{anonstruct;\@struct0}
+
+\/\/*\n=$0
+\/\*<comment>\*\/=$0
+comment:\/\*<comment>\*\/=$0
+
+code:\/\/*\n=$0
+code:\/\*<comment>\*\/=$0
+
+! optional space
+space:\/\/*\n= $0
+space:\/\*<comment>\*\/= $0 ;
+space:<S>=$1
+space:\N\W\#*\n=$0
+space:=@end
+
+! required space
+ReqSpace:\/\/*\n= $0
+ReqSpace:\/\*<comment>\*\/= $0 ;
+ReqSpace:\N\W\#*\n=$0
+ReqSpace:<S>=$1
+ReqSpace:=@terminate
+
+code:\"<string>\"=$0
+string:\\?=\\?
+code:\'<char>\'=$0
+char:\\?=\\?@end;?=?@end
+
+\n\L\W\P\n=\n
+code:\n\L\W\P\n=\n
+
+code:\=\==\S\=\S
+code:\==\S\:\=\S
+code:\!\==\S\~\=\S
+code:\<\==\S\<\=\S
+code:\>\==\S\>\=\S
+code:\<=\S\<\S
+code:\>=\S\>\S
+code:-\>=.
+code:\!=\S\~\S
+code:\~\W(<code>)=\Ilognot($1)
+code:\~\W<I>=\Ilognot(@rid{$1})
+code:\~=\Ilognot\I\/\* \?\?\? \*\/
+
+! quick pass-through of white space before trying to match <type>
+\s=\s
+\n=\n
+\t=\t
+
+code:\s=\s
+code:\n=\n
+code:\t=\t
+
+type:unsigned char\W\*=\I\<string\>@end
+type:unsigned char=\I\<character\>@end
+type:unsigned <itype><stars>=\I\<unsigned-$1$2\>@end
+type:signed <itype><stars>=\I\<$1$2\>@end
+type:struct \{<fields>\}=@incr{anonstruct}\
+	@out{\Ndefine class ${anonstruct} (\<object\>)\N$1\N\
+		end class ${anonstruct}\;\n}\
+	${anonstruct}@end
+type:struct <I><space><stars><space><L0>=\I@optptr{$3}\<$1\>$2$4@end
+type:enum <I>=\I\<$1-enum\>@end
+type:char\W\*=\I\<string\>@end
+type:char=\I\<character\>@end
+type:const <type>= \/\* const \*\/ $1@end
+type:void=()@end
+type:static=\/\*static\*\/ ;
+type:return=@fail
+type:if=@fail
+type:else=@fail
+type:for=@fail
+type:switch=@fail
+type:goto=@fail
+type:case=@fail
+type:typedef=@fail
+type:int<stars>=\<int$1\>@end
+type:long int<stars>=\<long$1\>@end
+type:short int<stars>=\<short$1\>@end
+type:long<stars>=\<long$1\>@end
+type:short<stars>=\<short$1\>@end
+type:<I><stars>=\I@optptr{$2}\<$1\>@end
+type:=@fail
+
+itype:int=int@end
+itype:long=long@end
+itype:short=short@end
+itype:long int=long@end
+itype:short int=short@end
+itype:char\W\*=string@end
+itype:char=character@end
+itype:\S=
+itype:=@fail
+
+stars:\W\*=\*
+stars:=@end
+
+optptr:\A\*=
+optptr:\*=\/\* pointer to \*\/
+
+typedef <I> <I>\;=define constant \<$2\> \= \<$1\>\;
+typedef <type>\G\W<I>\;=define constant \<$2\> \= $1\;
+typedef *\;=$0 \/\/ \?\?\?
+
+static=\/\*static\*\/ ;
+
+\I<type>\G\W<I>(<parms>)\G<space>\{<body>\}=\
+	\ndefine method @rid{$2}($3) \=\> $1\;$4\n\t$5\Nend method @rid{$2}\;
+parms:,<L0>=, ;
+parms:<ReqSpace>=$1
+parms:\I<type>\W<I>=@rid{$2} \:\: $1
+parms:<I>=\I@rid{$1}
+
+\I<type>\G\W<I><init>=\Ndefine variable @rid{$2} \:\: $1$3
+init:\;=\;@end
+init:\=<code>\;= \= $1\;@end
+init:<ReqSpace>=$1
+init:=@fail
+
+const <type><space><I>\==\Ndefine constant$2 @rid{$3} \:\: $1 \= ;
+
+body:\{#\}=\Sbegin #\Send\;
+body:<ReqSpace>=$1
+body:<type>\G\W<I><body-init>=\Ilet @rid{$2} \:\: $1$3
+body:<statement>=$1
+body:<I>=\I@rid{$1}
+body::code
+
+body-init:\;=\;@end
+body-init:\=<space><val>\;= \= $1$2\;@end
+body-init:\[<val>\]\;= \= make(\<vector\>, size\: $1)\;@end
+body-init:<ReqSpace>=$1
+body-init:=@fail
+
+val:\)=@fail
+val:\{=@fail
+val:\}=@fail
+val:<I>=@rid{$1}
+val::code
+
+code:0\J\C\Jx\J<X>=\#x$1
+code:0\J<O>=\#o$1
+
+! reserved words in Dylan but not in C
+rid:begin=begin\@
+rid:define=define\@
+rid:method=method\@
+rid:select=select\@
+rid:let=let\@
+rid:block=block\@
+rid:make=make\@
+
+rid:FALSE=\#f
+rid:TRUE=\#t
+
+rid:<I>=$1
+
+\N\W\#define <I> <N><space>\N=define constant @rid{$1} = $2\;$3\N
+\N\W\#include*\n=\N\/\/ \#include*\n
+\N\W\#pragma*\n=\N\/\/ \#pragma*\n
+\N\W\#*\n=$0
+code:\N\W\#*\n=$0
+
+^M\N=
+code:^M\N=
+
+code:\+\+=\S\+\+\S
+code:\-\-=\S\-\-\S
+code:\+\==\S\+\=\S
+code:\-\==\S\-\=\S
+code:\&\&=\S\&\S
+code:\|\|=\S\|\S
+
+code:\+=\S\+\S
+code:\-=\S\-\S
+code:\*=\S\*\S
+code:\/=\S\/\S
+code:\&=\Slogand\S
+code:\|=\Slogior\S
+
+code:,\W\&\W<L0>=, \/\* addr \*\/ ;
+
+statement:if(<code>)<space><statement><else-part>=\
+	if ( $1 )$2 $3 $4 end if\;@end
+else-part:<space>else<ReqSpace>if(<code>)<space><statement><else-part>=\
+	$1elseif$2( $3 )$4 $5 $6@end
+else-part:<space>else<space><statement>=$1else$2$3@end
+else-part:=@end
+
+statement:\{<body>\}=$1@end
+statement:<code>\;=$1\;@end
+statement:\}=@fail;\)=@fail
+code:(#)=(#)
+code:\}=@fail;\)=@fail
+:\}=\};\)=\)
+
+statement:switch\W(<code>)<space>\{<body>\}=select ( $1 )$2$3\N  end select\;@end
+body:case <code>\:<more-case>=$1$2 \=\> ;
+more-case:\W<space>case <code>\:=$1, $2
+more-case:=@end
+body:default\:= otherwise \=\> ;
+
+statement:for\W(\W<match-paren>)<space><statement>=\
+	for ( @for-clauses{$1} )$2$3\N\tend for\;@end
+match-paren:(#)=$0
+match-paren:\/\/*\n=$0
+match-paren:\/\*<comment>\*\/=$0
+
+for-clauses:\A\;<code>\;\W\Z=while $1
+for-clauses:\A<I>\=<val>\;\G\W$1\W<cmp><val>\;\G\W$1++\W\Z=@rid{$1} from $2 $3 $4
+for-clauses:\A<type>\G\W<I>\=<val>\;\G\W$2\W<cmp><val>\;\G\W$2++\W\Z=@rid{$2} \:\: $1 from $3 $4 $5
+for-clauses:\A<type>\G\W<I>\=<val>\;<code>\;\G\W$2\=<code>=$2 \:\: $1 \= $3 then $5, while $4
+for-clauses:\A<I>\=<val>\;<code>\;\G\W$1\=<code>=$1 \= $2 then $4, while $3
+for-clauses::code
+
+cmp:\<\==to@end
+cmp:\<=below@end
+cmp:\>\==@fail
+cmp:\>=above@end
+cmp:=@fail
+
+statement:while\W(<code>)<space><statement>=$0\N\tend while\;
+statement:do<statement><space>while(<code>)\;=\
+	block (exit-while)\n\t while(\#t)$1$2\N\t  \
+	unless($3) exit-while()\;\N\t end while\;\n\tend block\;
+
+struct <I><space>\{<fields>\}<space>*\;=\
+	@set{sclass;\<$1\>}\
+	define class ${sclass} ( \<object\> )$2\N$3\Nend class ${sclass}\;$4\
+	\N@sdefs{*}\N
+fields:<ReqSpace>=$1
+fields:<type>\G\W<I><space><bits>\;=\N\tslot @rid{$2} \:\: $1$3$4\;
+bits:\:<D>= \/\* $1 bits \*\/@end
+bits:=@end
+sdefs:<I>=\Ndefine variable @rid{$1} \:\: ${sclass}\;
+sdefs:\*<I>=\Ndefine variable @rid{$1} \:\: \/\* pointer to \*\/ ${sclass}\;
+sdefs:\,=
+
+code:new <I>()=make(\<$1\>)
+code:new <I>(<code>)=make(\<$1\>, $2)
+code:new <I>=make(\<$1\>)
+statement:delete <I>\;=\/\* delete @rid{$1}\; \*\/@end
+
+code:(\W<type>)<I>=as($1, $2)
+
+code:<I>=\I@rid{$1}
+code:\:\:=\/
+
+::code
+
