@@ -203,6 +203,8 @@ void prune_vars(varp old) {
 	  first_bound_var != first_global_var ) {
     x = first_bound_var;
     first_bound_var = x->next;
+    if ( x == last_bound_var )
+      last_bound_var = NULL;
     delete_var(x);
   }
 }
