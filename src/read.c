@@ -10,6 +10,22 @@
   an acknowledgment of the original source.
  *********************************************************************/
 
+/* $Log$
+/* Revision 1.11  1995/07/27 03:00:45  gray
+/* Fix handling of "\B" followed by an argument instead of a literal.
+/*
+ * Revision 1.10 1995/06/12 03:05:17 gray
+ * Fixed bug in handling of rule domain encloses in angle brackets
+ * ("<...>:...").  Add new functions @get-switch and @out-column.
+ *
+ * Revision 1.9 1995/05/30 05:06:21 gray
+ * Fix occasional spurious warning about escape sequence in action
+ * continued on second line.
+ *
+ * Revision 1.8 1995/05/08 03:13:46 gray
+ * Add @expand-wild
+ */
+
 #if defined(_QC) || defined(_MSC_VER) /* Microsoft C or Quick C */
 #pragma check_stack(off)
 #endif
@@ -1708,6 +1724,13 @@ install_pattern( const unsigned char* template, Pattern pat,
 #endif
 }
 
+boolean
+literal_key( const unsigned char* ps ) {
+  /* returns true if the template begins with a literal instead of
+     an argument. */
+  return !ISOP(get_template_element(&ps,FALSE));
+}
+
 int read_patterns ( CIStream s, const char* default_domain,
 		    boolean undef ){
   Pattern pat;
@@ -1720,7 +1743,7 @@ int read_patterns ( CIStream s, const char* default_domain,
   domain = top;
   while ( NULL != (pat = read_pattern(s, &domain, top, undef)) ) {
     const unsigned char* ps = pat->pattern;
-    if ( ps[0] == PT_AUX && ps[2] == PT_END &&
+    if ( ps[0] == PT_AUX && !literal_key(ps+2) &&
   	 ( ps[1] == PTX_INIT || ps[1] == PTX_BEGIN_FILE ||
 	   ps[1] == PTX_FINAL || ps[1] == PTX_END_FILE ) ) {
       Pattern* opp = &domains[domain]->init_and_final_patterns;
