@@ -237,19 +237,19 @@ CHAR *regexp_dfa_buffer_too_short =
 #define store(x) ((mp < dfa_limit)?(*mp++ = x):(dfa_short = 1))
  
 	/* compile RE to internal format & store in dfa[] */
-CHAR *regexp_comp(pat, dfa, bufsize) CHAR *pat; CHAR* dfa; int bufsize;
+CHAR *regexp_comp (CHAR *pat, CHAR *dfa, int bufsize)
 {
-   CHAR
-    *p,			/* pattern pointer */
-    *mp = dfa,		/* dfa pointer */
-    *lp,		/* saved pointer */
-    *sp = dfa;		/* another one */
-   CHAR *dfa_limit = dfa + bufsize;
-   int dfa_short = 0;
-   int
-    tagi = 0,		/* tag stack index */
-    tagc = 1,		/* actual tag count */
-    n, c1, c2;
+  CHAR
+    *p,                         /* pattern pointer */
+  *mp = dfa,                    /* dfa pointer */
+  *lp,                          /* saved pointer */
+  *sp = dfa;                    /* another one */
+  CHAR *dfa_limit = dfa + bufsize;
+  int dfa_short = 0;
+  int
+    tagi = 0,                   /* tag stack index */
+  tagc = 1,                     /* actual tag count */
+  n, c1, c2;
 
   if (pat==NULL || *pat=='\0')
     if (pattern_compiled) CHECK_RETURN();
@@ -257,100 +257,100 @@ CHAR *regexp_comp(pat, dfa, bufsize) CHAR *pat; CHAR* dfa; int bufsize;
   pattern_compiled = FALSE;
 
   for (p = pat; *p; p++)
-  {
-    lp = mp;
-    switch(*p)
     {
-      case '.': store(ANY); break;		/* match any characters */
-      case '^':					/* match beginning of line */
-	if (p==pat) store(BOL); else { store(CHR); store(*p); }
-	break;
-      case '$':					/* match end of line */
-	if (*(p+1)=='\0') store(EOL); else { store(CHR); store(*p); }
-	break;
-      case '[':					/* match a set of characters */
-	if (*++p=='^') { store(NSET); p++; } else store(SET);
-	if (*p=='-') chset(*p++);	/* real dash */
-	if (*p==']') chset(*p++);	/* real bracket */
-	while (*p && *p!=']')
-	{
-	  if (*p=='-' && *(p+1)!='\0' && *(p+1)!=']')	/* a-z */
-	  {
-	    p++;
-	    c1 = *(p-2) +1;	/* 'b' since 'a' already put into bittab */
-	    c2 = *p++;		/* 'z' */
-/*	    if (c1>c2) badpat("Empty set");	/* tried something like z-a */
-	    while (c1<=c2) chset(c1++);		/* build bit table */
-	  }
+      lp = mp;
+      switch(*p)
+        {
+        case '.': store(ANY); break; /* match any characters */
+        case '^':               /* match beginning of line */
+          if (p==pat) store(BOL); else { store(CHR); store(*p); }
+          break;
+        case '$':               /* match end of line */
+          if (*(p+1)=='\0') store(EOL); else { store(CHR); store(*p); }
+          break;
+        case '[':               /* match a set of characters */
+          if (*++p=='^') { store(NSET); p++; } else store(SET);
+          if (*p=='-') chset(*p++); /* real dash */
+          if (*p==']') chset(*p++); /* real bracket */
+          while (*p && *p!=']')
+            {
+              if (*p=='-' && *(p+1)!='\0' && *(p+1)!=']') /* a-z */
+                {
+                  p++;
+                  c1 = *(p-2) +1; /* 'b' since 'a' already put into bittab */
+                  c2 = *p++;    /* 'z' */
+                  /*	    if (c1>c2) badpat("Empty set");	/* tried something like z-a */
+                  while (c1<=c2) chset(c1++); /* build bit table */
+                }
 #ifdef EXTEND
-	  else if (*p=='\\' && *(p+1)) { p++; chset(*p++); }
+              else if (*p=='\\' && *(p+1)) { p++; chset(*p++); }
 #endif
-	  else chset(*p++);
-	}
-	if (*p=='\0') badpat("Missing ]");
-	for (n = 0; n < BITBLK; bittab[n++] = '\0') store(bittab[n]);
-	break;
-      case '*':				/* match 0 or more of preceding RE */
-      case '+':			/* match 1 or more.  Note: x+ == xx* */
-	if (p==pat) badpat("Empty closure");
-	lp = sp;		/* previous opcode */
-	if (*lp==CLO) break;	/* equivalence: x** == x*  */
-	switch(*lp)
-	{
-	  case BOL: case BOT: case EOT: case BOW: case EOW: case REF:
-	    badpat("Illegal closure");
-	}
-	if (*p=='+') for (sp = mp; lp < sp; lp++) store(*lp);
-	store(END); store(END); sp = mp;
-	while (--mp > lp) *mp = mp[-1]; store(CLO);	/* open hole for CLO */
-	mp = sp;
-	break;
-      case '\\':              /* tags, backrefs */
-	switch(*++p)
-	{
-	  case '\0': badpat("Bad quote");
-	  case '(':
-	    if (tagc < MAXTAG)
-	      { tagstk[++tagi] = tagc; store(BOT); store(tagc++); }
-	    else badpat("Too many \\(\\) pairs");
-	    break;
-	  case ')':
-	    if (*sp==BOT) badpat("Null pattern inside \\(\\)");
-	    if (tagi > 0) { store(EOT); store(tagstk[tagi--]); }
-	    else badpat("Unmatched \\)");
-	    break;
-	  case '<': store(BOW); break;
-	  case '>':
-	    if (*sp==BOW) badpat("Null pattern inside \\<\\>");
-	    store(EOW);
-	    break;
-	  case '1': case '2': case '3': case '4': case '5': case '6': 
-	  case '7': case '8': case '9':
-	    n = *p-'0';
-	    if (tagi > 0 && tagstk[tagi]==n) badpat("Cyclical reference");
-	    if (tagc > n) { store(REF); store(n); }
-	    else badpat("Undetermined reference");
-	    break;
-	  case ' ': store(SPACE); break;
-	  case 'a': store(ALPHA); break;
-	  case 'd': store(DIGIT); break;
-	  case 'n': store(ALNUM); break;
-	  case 'w': store(WORD);  break;
-	  case 'W': store(NWORD); break;
+              else chset(*p++);
+            }
+          if (*p=='\0') badpat("Missing ]");
+          for (n = 0; n < BITBLK; bittab[n++] = '\0') store(bittab[n]);
+          break;
+        case '*':               /* match 0 or more of preceding RE */
+        case '+':               /* match 1 or more.  Note: x+ == xx* */
+          if (p==pat) badpat("Empty closure");
+          lp = sp;		/* previous opcode */
+          if (*lp==CLO) break;	/* equivalence: x** == x*  */
+          switch(*lp)
+            {
+            case BOL: case BOT: case EOT: case BOW: case EOW: case REF:
+              badpat("Illegal closure");
+            }
+          if (*p=='+') for (sp = mp; lp < sp; lp++) store(*lp);
+          store(END); store(END); sp = mp;
+          while (--mp > lp) *mp = mp[-1]; store(CLO); /* open hole for CLO */
+          mp = sp;
+          break;
+        case '\\':              /* tags, backrefs */
+          switch(*++p)
+            {
+            case '\0': badpat("Bad quote");
+            case '(':
+              if (tagc < MAXTAG)
+                { tagstk[++tagi] = tagc; store(BOT); store(tagc++); }
+              else badpat("Too many \\(\\) pairs");
+              break;
+            case ')':
+              if (*sp==BOT) badpat("Null pattern inside \\(\\)");
+              if (tagi > 0) { store(EOT); store(tagstk[tagi--]); }
+              else badpat("Unmatched \\)");
+              break;
+            case '<': store(BOW); break;
+            case '>':
+              if (*sp==BOW) badpat("Null pattern inside \\<\\>");
+              store(EOW);
+              break;
+            case '1': case '2': case '3': case '4': case '5': case '6': 
+            case '7': case '8': case '9':
+              n = *p-'0';
+              if (tagi > 0 && tagstk[tagi]==n) badpat("Cyclical reference");
+              if (tagc > n) { store(REF); store(n); }
+              else badpat("Undetermined reference");
+              break;
+            case ' ': store(SPACE); break;
+            case 'a': store(ALPHA); break;
+            case 'd': store(DIGIT); break;
+            case 'n': store(ALNUM); break;
+            case 'w': store(WORD);  break;
+            case 'W': store(NWORD); break;
 #ifdef EXTEND
-	  case 'b': store(CHR); store('\b'); break;
-	  case 'n': store(CHR); store('\n'); break;
-	  case 'f': store(CHR); store('\f'); break;
-	  case 'r': store(CHR); store('\r'); break;
-	  case 't': store(CHR); store('\t'); break;
+            case 'b': store(CHR); store('\b'); break;
+            case 'n': store(CHR); store('\n'); break;
+            case 'f': store(CHR); store('\f'); break;
+            case 'r': store(CHR); store('\r'); break;
+            case 't': store(CHR); store('\t'); break;
 #endif
-	  default: store(CHR); store(*p);
-	}
-	break;
-      default : store(CHR); store(*p); break;	/* an ordinary character */
+            default: store(CHR); store(*p);
+            }
+          break;
+          default : store(CHR); store(*p); break; /* an ordinary character */
+        }
+      sp = lp;
     }
-    sp = lp;
-  }
   if (tagi > 0) badpat("Unmatched \\(");
   store(END);
   pattern_compiled = TRUE;
@@ -383,7 +383,7 @@ int regexp_errorcode;	/* sleaze */
  *	move==TRUE if search the entire string for match
  */
 
-int regexp_exec(lp,SoL,move,dfa)  CHAR *lp; int SoL, move; CHAR* dfa;
+int regexp_exec (CHAR *lp, int SoL, int move, CHAR *dfa)
 {
   CHAR *ap = dfa, c;
   CHAR *ep = NULL;
@@ -407,9 +407,6 @@ int regexp_exec(lp,SoL,move,dfa)  CHAR *lp; int SoL, move; CHAR* dfa;
         {
           c = *(ap+1);
           while (*lp && !ceq(*lp,c)) lp++;
-#if 0
-          if (!*lp) return FALSE; /* if EoS fail. else fall thru */
-#endif
         }
     default:                    /* regular matching all the way. */
       if (!move) { ep = pmatch(lp,ap); break; }
@@ -449,29 +446,29 @@ int regexp_exec(lp,SoL,move,dfa)  CHAR *lp; int SoL, move; CHAR* dfa;
  * expressions (n = 1 to 9).
 */
 
-extern void regexp_fail();
+void regexp_fail (CHAR *msg, CHAR op);
 
 	/* skip values for CLO XXX to skip past the closure */
 #define ANYSKIP	2 		/* CLO ANY END ...	   */
 #define CHRSKIP	3		/* CLO CHR chr END ...	   */
 #define SETSKIP (2 +BITBLK)	/* CLO SET 16bytes END ... */
 
-static CHAR *pmatch(lp,dfa)  CHAR *lp, *dfa;
+static CHAR *pmatch (CHAR *lp, char *dfa)
 {
-   CHAR
-    *e,			/* extra pointer for CLO */
-    *bp, *ep;		/* beginning and ending of subpat */
-  CHAR *are;		/* to save the line ptr */
-   int op, c, n;
+  CHAR
+    *e,                         /* extra pointer for CLO */
+  *bp, *ep;                     /* beginning and ending of subpat */
+  CHAR *are;                    /* to save the line ptr */
+  int op, c, n;
 
   while ((op = *dfa++) != END)
     switch(op)
-    {
+      {
       case CHR:	if (!ceq(*lp++,*dfa++)) return NULL; break;
       case ANY: if (*lp++=='\0') return NULL; break;
       case SET:
         c = *lp++;
-	if (!ISINSET(dfa,c)) return NULL;	/* ISINSET(dfa,0) is FALSE */
+	if (!ISINSET(dfa,c)) return NULL; /* ISINSET(dfa,0) is FALSE */
 	dfa += BITBLK;
 	break;
       case NSET:
@@ -486,34 +483,34 @@ static CHAR *pmatch(lp,dfa)  CHAR *lp, *dfa;
       case DIGIT: if (!isdigit(*lp++)) return NULL; break;
       case SPACE: if (!isspace(*lp++)) return NULL; break;
 #if 0
- *      case WORD:  if (!isword(*lp++))  return NULL; break;
- *      case NWORD: if (*lp == '\0' || isword(*lp++)) return NULL; break;
- *      case BOW:
- *        if (!(lp != bol && isword(lp[-1])) && isword(*lp)) break;
- *	return NULL;
- *      case EOW:		/* 'w\0' is OK here */
- *        if ((lp != bol && isword(lp[-1])) && !isword(*lp)) break;
- *	return NULL;
+        *      case WORD:  if (!isword(*lp++))  return NULL; break;
+        *      case NWORD: if (*lp == '\0' || isword(*lp++)) return NULL; break;
+        *      case BOW:
+        *        if (!(lp != bol && isword(lp[-1])) && isword(*lp)) break;
+        *	return NULL;
+        *      case EOW:        /* 'w\0' is OK here */
+        *        if ((lp != bol && isword(lp[-1])) && !isword(*lp)) break;
+        *	return NULL;
 #endif
-      case REF:		/* !!! case_fold? */
+      case REF:                 /* !!! case_fold? */
         n = *dfa++; bp = regexp_bopat[n]; ep = regexp_eopat[n];
-	while (bp < ep) if (*bp++ != *lp++) return NULL;  /* !!! recurse? */
+	while (bp < ep) if (*bp++ != *lp++) return NULL; /* !!! recurse? */
 	break;
       case CLO:
         are = lp; n = ANYSKIP;
 	switch(*dfa)
-	{
+          {
 	  case ANY:   while (*lp) lp++;		 break;
 	  case ALNUM: while (isalnum(*lp)) lp++; break;
 	  case ALPHA: while (isalpha(*lp)) lp++; break;
 	  case DIGIT: while (isdigit(*lp)) lp++; break;
 	  case SPACE: while (isspace(*lp)) lp++; break;
 #if 0
- *	  case WORD:  while (isword(*lp))  lp++; break;
- *	  case NWORD: while (*lp && !isword(*lp)) lp++; break;
+            *	  case WORD:  while (isword(*lp))  lp++; break;
+            *	  case NWORD: while (*lp && !isword(*lp)) lp++; break;
 #endif
 	  case CHR:
-	    c = *(dfa+1);		/* we know c!='\0' */
+	    c = *(dfa+1);       /* we know c!='\0' */
 	    while (ceq(*lp,c)) lp++;
 	    n = CHRSKIP;
 	    break;
@@ -524,17 +521,17 @@ static CHAR *pmatch(lp,dfa)  CHAR *lp, *dfa;
 	  default: regexp_fail((unsigned char*)"closure: bad dfa.",
 			       *dfa);
 	    return NULL;
-	}
+          }
 	dfa += n;
 	while (lp >= are)	/* backup up till match next pattern */
-	{
-	  if (e = pmatch(lp,dfa)) return e;
-	  --lp;
-	}
+          {
+            if (e = pmatch(lp,dfa)) return e;
+            --lp;
+          }
 	return NULL;
       default: regexp_fail((unsigned char*)"regexp_exec: bad dfa.",op);
 	return NULL;
-    }
+      }
   return lp;
 }
 
@@ -548,36 +545,36 @@ static CHAR *pmatch(lp,dfa)  CHAR *lp, *dfa;
  * 	!!!Note: if the line that was used regexp_exec() has gone byebye
  *	  then \digit will blow cookies since the tags point into the line.
  */
-int regexp_subs(src,dst)  CHAR *src, *dst;
+int regexp_subs (CHAR *src, CHAR *dst)
 {
-   CHAR c, *bp, *ep;
-   int pin;
+  CHAR c, *bp, *ep;
+  int pin;
 
   if (!regexp_bopat[0]) return FALSE;
 
   while (c = *src++)
-  {
-    switch(c)
     {
-      case '&': pin = 0; break;
-      case '\\': 
-        c = *src++;
-	if (c >= '0' && c <= '9') { pin = c - '0'; break; }
-      default: *dst++ = c; continue;
+      switch(c)
+        {
+        case '&': pin = 0; break;
+        case '\\': 
+          c = *src++;
+          if (c >= '0' && c <= '9') { pin = c - '0'; break; }
+        default: *dst++ = c; continue;
+        }
+      if ((bp = regexp_bopat[pin]) && (ep = regexp_eopat[pin]))
+        {
+          while (*bp && bp < ep) *dst++ = *bp++;
+          if (bp < ep) return FALSE;
+        }
     }
-    if ((bp = regexp_bopat[pin]) && (ep = regexp_eopat[pin]))
-    {
-      while (*bp && bp < ep) *dst++ = *bp++;
-      if (bp < ep) return FALSE;
-    }
-  }
   *dst = '\0';
   return TRUE;
 }
 
 
 void 
-regexp_fail (unsigned char *msg, unsigned char op)
+regexp_fail (CHAR *msg, CHAR op)
 {
 }
 
@@ -589,31 +586,30 @@ regexp_fail (unsigned char *msg, unsigned char op)
 /*
  * symbolic - produce a symbolic dump of the dfa
  */
-symbolic(s) 
-char *s;
+void symbolic (char *s)
 {
-	printf("pattern: %s\n", s);
-	printf("dfacode:\n");
-	dfadump(dfa);
+  printf("pattern: %s\n", s);
+  printf("dfacode:\n");
+  dfadump(dfa);
 }
 
-static	
-dfadump(dfa) CHAR *dfa;
+static void
+dfadump (CHAR *dfa)
 {
-   int n;
+  int n;
 
   while (*dfa != END)
     switch(*dfa++)
-    {
+      {
       case CLO:
         printf("CLOSURE");
 	dfadump(dfa);
 	switch(*dfa)
-	{
+          {
 	  case CHR: n = CHRSKIP; break;
 	  case ANY: n = ANYSKIP; break;
 	  case SET: case NSET: n = SETSKIP; break;
-	}
+          }
 	dfa += n;
 	break;
       case CHR: printf("\tCHR %c\n",*dfa++); break;
@@ -642,7 +638,7 @@ dfadump(dfa) CHAR *dfa;
         printf("bad dfa. opcode %o\n", dfa[-1]);
 	exit(1);
 	break;
-    }
+      }
 }
 #endif
 
