@@ -14,7 +14,7 @@ INSTALLDIR = /usr/local
 
 # The default build target runs a script to determine the appropriate options.
 default: 
-	./build
+	gemabuild
 
 gcc:
 	${MAKE} CC=gcc CCFLAGS="-ansi -Wall -O2 -DNDEBUG" gema
