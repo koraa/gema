@@ -6,6 +6,12 @@
 
 #include <stdlib.h>
 
+#ifndef MSDOS
+#if defined(__MSDOS__) || defined(_MSDOS)
+#define MSDOS 1
+#endif
+#endif
+
 typedef enum {
   MemoryPatterns, MemoryStream, MemoryInputBuf, MemoryOutputBuf,
   MemoryVar, MemoryPath, MemoryRegexp, MemoryDispatch
@@ -41,7 +47,6 @@ relative_pathname(const char* relative_to, const char* file_path);
 
 const char*
 canonicalize_path(const char* path);
-
 
 #ifdef MSDOS
 #define HAS_STRICMP
