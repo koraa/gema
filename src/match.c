@@ -42,7 +42,7 @@ isident( int ch ) { /* is the character an identifier constituent? */
     ( strchr(idchars,ch) != NULL && ch != 0 );
 }
 
-#if defined(_QC)
+#if defined(_QC) || defined(_MSC_VER) /* Microsoft C or Quick C */
 #pragma check_stack(on)
 #endif
 
@@ -162,7 +162,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  goto success;
 	}
 	if ( ic == '\n' && (local_options & MatchLine) )
-	  goto failure;
+	  goto failed_any;
 	else {
 	  int xc;
 	  xc = getch_marked(&marker);
@@ -175,6 +175,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  cos_putch(outbuf, (char)xc );
 	}
       }
+    failed_any:
       cos_close(outbuf);
       goto failure;
     } /* end PT_MATCH_ANY */
