@@ -56,17 +56,19 @@ static struct switches {
 #ifndef NDEBUG
     { "debug", &debug_switch },
 #endif
+#ifdef TRACE
+    { "trace", &trace_switch },
+#endif
     { NULL, NULL } };
 
-boolean
-set_switch(const char* arg, boolean value) {
+int*
+find_switch(const char* arg) {
+  /* given a switch name, return a pointer to the value. */
   struct switches *p;
   for ( p = &switch_table[0] ; p->name != NULL ; p++ )
-    if ( stricmp(arg, p->name)==0 ) {
-      *(p->var) = value;
-      return TRUE;
-    }
-  return FALSE;
+    if ( stricmp(arg, p->name)==0 )
+      return p->var;
+  return NULL;
 }
 
 static struct parms {
@@ -208,18 +210,21 @@ static char argv_rules[] =
 CI "\\N-h*\\n=@show-help@end\n"
    "\\A\\n\\Z=@err{@version\\N@show-help}@end\n"
 CI "\\N-version\\n=@err{@version\\N}\n"
-CI "\\N-f\\n*\\n=@set-switch{b;0}@define{@read{*}}@set-switch{b;${.BINARY;0}}\n"
+CI "\\N-f\\n*\\n=@set{.BINARY;@get-switch{b}}@set-switch{b;0}"
+		"@define{@read{*}}@cmpn{${.BINARY;0};0;;;@set-switch{b;1}}\n"
 CI "\\N-p\\n*\\n=@define{*}\n"
    "\\N-<L1>\\n=@set-switch{$1;1}\n"
 CI "\\N-w\\n=@set-switch{w;1}@set-syntax{S;\\s\\t}\n"
 CI "\\N-t\\n=@set-switch{w;1}@set-switch{t;1}\n"
-CI "\\N-b\\n=@set-switch{b;1}@set{.BINARY;1}\n"
 CI "\\N-arglen\\n<D>\\n=@set-switch{arglen;$1}\n"
 CI "\\N-idchars\\n*\\n=@set-parm{idchars;$1}\n"
 CI "\\N-filechars\\n*\\n=@set-parm{filechars;$1}\n"
 CI "\\N-literal\\n*\\n=@set-syntax{L;$1}\n"
 #ifndef NDEBUG
 CI "\\N-debug\\n=@set-switch{debug;1}\n"
+#endif
+#ifdef TRACE
+CI "\\N-trace\\n=@set-switch{trace;1}\n"
 #endif
 CI "\\N-line\\n=@set-switch{line;1}\n"
 CI "\\N-match\\n=@set-switch{match;1}\n"
