@@ -11,14 +11,17 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.17  1996/04/08 05:29:56  gray
-/* Fixed initialization of `fnnargs' so that ${varname} always works even when
-/* @var has never been used.  Fixed interaction of comment and continuation
-/* lines.  If the first line of a pattern file begins with "#!", ignore that
-/* line so that pattern files can be made directly executable.  When '=' is
-/* missing, discard incomplete rule to avoid other errors.  Warn when template
-/* begins with recursive argument in same domain (will just overflow stack).
+/* Revision 1.18  2001/09/30 23:10:20  gray
+/* Fix uninitialized variable in skip_comment.
 /*
+ * Revision 1.17  1996/04/08  05:29:56  gray
+ * Fixed initialization of `fnnargs' so that ${varname} always works even when
+ * @var has never been used.  Fixed interaction of comment and continuation
+ * lines.  If the first line of a pattern file begins with "#!", ignore that
+ * line so that pattern files can be made directly executable.  When '=' is
+ * missing, discard incomplete rule to avoid other errors.  Warn when template
+ * begins with recursive argument in same domain (will just overflow stack).
+ *
  * Revision 1.16  1995/08/27  21:03:46  gray
  * Fix handling of space between identifiers with "-t" or "-w".
  * Fix to not be prevented from using dispatch table when template begins with
@@ -828,6 +831,7 @@ read_put( CIStream s, unsigned char** app, int nargs,
 static boolean 
 skip_comment( CIStream s ) {
   int ch;
+  ch = 0;
   for ( ; ; ) {
     int nc;
     nc = cis_getch(s);
