@@ -11,7 +11,7 @@
 	can be distinguished from the original version.
  */
 
-const char what_string [] = "@(#)gema 1.3.1 Feb 17, 2002";
+const char what_string [] = "@(#)gema 1.3.2 Nov 1, 2003";
 
 const char author [] = "@(#) David N. Gray <DGray@acm.org>";
 
