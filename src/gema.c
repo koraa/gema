@@ -10,6 +10,21 @@
   an acknowledgment of the original source.
  *********************************************************************/
 
+/*
+ * $Log$
+ * Revision 1.10  1995/07/04 23:41:52  gray
+ * Split `argv_rules' into 5 pieces to placate the MPW compiler.
+ *
+ * Revision 1.9 1995/06/12 02:59:42 gray
+ * Add "-trace" option.  Fix "-f" to not undo binary mode set in file.
+ *
+ * Revision 1.8 1995/05/22 02:50:14 gray
+ * Update expand_wildcard to work on Windows/NT.
+ *
+ * Revision 1.7 1995/05/08 03:15:15 gray
+ * Add wild card expansion for MS-DOS
+ */
+
 #if defined(_QC) || defined(_MSC_VER)
 #pragma check_stack(off)
 #endif
@@ -205,8 +220,9 @@ do_args(char** argv) {
 #endif
 
 /* The following rules define how the command-line arguments will
-   be processed. */
-static char argv_rules[] =
+   be processed. (They are split into several strings to accommodate the
+   Macintosh MPW compiler, which does not allow strings longer than 512.) */
+static char argv_rules1[] =
 CI "\\N-h*\\n=@show-help@end\n"
    "\\A\\n\\Z=@err{@version\\N@show-help}@end\n"
 CI "\\N-version\\n=@err{@version\\N}\n"
@@ -215,7 +231,8 @@ CI "\\N-f\\n*\\n=@set{.BINARY;@get-switch{b}}@set-switch{b;0}"
 CI "\\N-p\\n*\\n=@define{*}\n"
    "\\N-<L1>\\n=@set-switch{$1;1}\n"
 CI "\\N-w\\n=@set-switch{w;1}@set-syntax{S;\\s\\t}\n"
-CI "\\N-t\\n=@set-switch{w;1}@set-switch{t;1}\n"
+CI "\\N-t\\n=@set-switch{w;1}@set-switch{t;1}\n";
+static char argv_rules2[] =
 CI "\\N-arglen\\n<D>\\n=@set-switch{arglen;$1}\n"
 CI "\\N-idchars\\n*\\n=@set-parm{idchars;$1}\n"
 CI "\\N-filechars\\n*\\n=@set-parm{filechars;$1}\n"
@@ -234,6 +251,8 @@ CI "\\N-match\\n=@set-switch{match;1}\n"
 CI "\\N-n\\n=@set-switch{match;1}\n"	/* like for sed */
 CI "\\N-e\\n*\\n=@define{*}\n"		/* like for sed */
 #endif
+;
+static char argv_rules3[] =
 CI "\\N-nobackup\\n=@set-parm{backup;}\n"
 CI "\\N-backup\\n<G>\\n=@set-parm{backup;$1}\n"
 CI "\\N-out\\n*\\n=@set{.OUT;$1}\n"
@@ -252,7 +271,8 @@ CI "\\N-otyp\\n*\\n=@set{.OTYP;*}\n"
 #else
    "\\N*\\n=@ARGV-FILE{${.ODIR;}\\n${.OUT;}\\n${.IN;}\\n*}\n"
 #endif
-   "\\Z=@ARGV-END{${.OUT;}\\n${.IN;}\\n${.ODIR;}\\n}\n"
+   "\\Z=@ARGV-END{${.OUT;}\\n${.IN;}\\n${.ODIR;}\\n}\n";
+static char argv_rules4[] =
 "ARGV-FILE:\\n\\n\\n<U>=@set{.IN;$1};"
  "\\n\\n<U>\\n<U>=@set{.OUT;$2};"
  "\\n<U>\\n<U>\\n<U>=@err{More than two files specified.\\n}@exit-status{3};"
@@ -260,7 +280,8 @@ CI "\\N-otyp\\n*\\n=@set{.OTYP;*}\n"
  "<U>\\n\\n*\\n<U>=@bind{.OUT;@makepath{$1;@relpath{$3;$3};${.OTYP;}}}"
   "@write{${.OUT};@{@read{$3}}}@close{${.OUT}}@unbind{.OUT};"
  "<U>\\n<U>\\n=@err{Not meaningful\\:\\ both\\ -out\\ and\\ -odir\\n}"
-	"@exit-status{3}@end\n"
+	"@exit-status{3}@end\n";
+static char argv_rules5[] =
 "ARGV-END:\\n\\n<U>\\n=@end;" /* -odir was specified */
  "<U>\\n\\n\\n=@end;"
  "<U>\\n<U>\\n=@write{$1;@{@read{$2}}}@end;" /* output and input files */
@@ -273,12 +294,24 @@ CI "\\N-otyp\\n*\\n=@set{.OTYP;*}\n"
 ;
 
 static void
-initialize_argv_domain(void) {
+load_rules( const char* argv_rules, size_t length ) {
   CIStream str;
-  assert( (int)EXS_ARG == 3 ); /* to match "@exit-status" above */
-  str = make_string_input_stream(argv_rules, sizeof(argv_rules)-1, FALSE);
+  assert( length < 512 );
+  str = make_string_input_stream(argv_rules, length, FALSE);
   read_patterns ( str, argv_domain_name, FALSE );
   cis_close(str);
+}
+
+#define LOAD_RULES(argv_rules) load_rules(argv_rules, sizeof(argv_rules)-1)
+
+static void
+initialize_argv_domain(void) {
+  assert( (int)EXS_ARG == 3 ); /* to match "@exit-status" above */
+  LOAD_RULES(argv_rules1);
+  LOAD_RULES(argv_rules2);
+  LOAD_RULES(argv_rules3);
+  LOAD_RULES(argv_rules4);
+  LOAD_RULES(argv_rules5);
 }
 
 int main(int argc, char* argv[]){
