@@ -11,9 +11,20 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.16  1995/09/29 04:09:44  gray
-/* Fix `trace' format on MS-DOS.
+/* Revision 1.17  1996/04/08 05:23:04  gray
+/* Use new `goal_state' structure to pass additional context information for
+/* goal match; this allows access to previous arguments and the correct local
+/* mode for case sensitivity.  New function `match_to_stream' combines common
+/* code for matching on variables and previous arguments; fixed to respect
+/* case-insensitive option.  Also support case-insensitive comparison for the
+/* terminator of a recognizer or recursive argument.  Don't automatically skip
+/* whitespace at the beginning of a template.  For domain with default rule
+/* ``=@fail'', don't match an empty string if delimiter found immediately.
+/* Minor improvement of trace messages.
 /*
+ * Revision 1.16  1995/09/29  04:09:44  gray
+ * Fix `trace' format on MS-DOS.
+ *
  * Revision 1.15  1995/08/27  20:46:03  gray
  * Fix for "\J" preceding empty argument with "-w" but not "-t".
  *
@@ -93,6 +104,12 @@ isident( int ch ) { /* is the character an identifier constituent? */
     ( strchr(idchars,ch) != NULL && ch != 0 );
 }
 
+struct goal_state {
+  const unsigned char* template;
+  CIStream* args;
+  int options;
+};
+
 #if defined(_QC) || defined(_MSC_VER) /* Microsoft C or Quick C */
 #pragma check_stack(on)
 #endif
@@ -168,13 +185,29 @@ static struct { int level; long line; int column; int ch; int domain; }
 	trace_enter = {INT_MAX,0,0,0,-1};
 static char*
 show_char(int ch) {
-  static char buf[2];
+  static char buf[6];
+  int b2;
+  buf[0] = '\'';
+  buf[1] = '\\';
+  buf[3] = '\'';
+  buf[4] = '\0';
   switch(ch){
-  case '\n': return "\\n";
-  case '\t': return "\\t";
-  case '\f': return "\\f";
-  default: buf[0] = ch; buf[1] = '\0'; return buf;
+  case EOF: return "EOF";
+  case '\n': b2 = 'n'; break;
+#if '\r' != '\n'
+  case '\r': b2 = 'r'; break;
+#endif
+  case '\t': b2 = 't'; break;
+  case '\f': b2 = 'f'; break;
+  case '\b': b2 = 'b'; break;
+  default: 
+    if ( (ch >> 3) == 0 )
+      b2 = '0' + ch;
+    else { buf[1] = ch; b2 = '\''; buf[3] = '\0'; }
+    break;
   }
+  buf[2] = b2;
+  return buf;
 }
 
 typedef enum { FAIL, OK } trace_kinds;
@@ -189,7 +222,7 @@ trace( struct mark_struct * mp, trace_kinds kind, const char* format, ... ) {
       fprintf( stderr, "%12ld,%2d ", trace_enter.line, trace_enter.column);
       for ( n = trace_enter.level ; n > 0 ; n-- )
 	fputc(' ',stderr);
-      fprintf( stderr, "Try <%s> at '%s'\n",
+      fprintf( stderr, "Try <%s> at %s\n",
 	       domains[trace_enter.domain]->name,
 	       show_char(trace_enter.ch) );
     }
@@ -206,7 +239,7 @@ trace( struct mark_struct * mp, trace_kinds kind, const char* format, ... ) {
       fputc(' ',stderr);
     if ( kind == FAIL ) fprintf( stderr, "Failed ");
     vfprintf(stderr, format, args);
-    if ( kind == FAIL ) fprintf( stderr, " at '%s'\n",
+    if ( kind == FAIL ) fprintf( stderr, " at %s\n",
 				 show_char(cis_peek(mp->in)) );
   }
   va_end(args);
@@ -219,9 +252,32 @@ trace( struct mark_struct * mp, trace_kinds kind, const char* format, ... ) {
 #define TRACE_FAILURE(string)
 #endif
 
+static int
+match_to_stream(struct mark_struct* ps, CIStream arg, int local_options) {
+  int ac, kc;
+  CIStream in;
+
+  in = ps->in;
+  while ( ( ac = cis_getch(arg) ) != EOF ) {
+loop1:
+    kc = cis_peek(in);
+    if ( ac == kc ||
+	 ( (local_options & MatchNoCase) && toupper(ac) == toupper(kc) ) )
+      (void)getch_marked(ps);
+    else if ( ignore_whitespace && isspace(kc) &&
+	      !( kc == '\n' && (local_options & MatchLine) ) &&
+	      cis_prevch(arg) == EOF && ps->marked ) {
+      (void)cis_getch(in);
+      goto loop1;
+    }
+    else return FALSE;
+  }
+  return TRUE;
+}
+
 boolean
 try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
-	     CIStream* all_args, int options, const unsigned char* goal) {
+	     CIStream* all_args, int options, Goal goal ) {
   const unsigned char* ps;
   int ic, pc;
   struct mark_struct marker;
@@ -242,18 +298,13 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
     case PT_MATCH_ANY: {
       COStream outbuf;
       int limit;
-      const unsigned char* use_goal;
-      int new_options;
+      Goal use_goal;
       if ( next_arg == NULL ) /* matching only up to first argument */
 	goto success;
       assert( next_arg[0] == NULL );
       next_arg[1] = NULL;
       outbuf = make_buffer_output_stream();
-      use_goal = NULL;
-      if ( ps[1] == PT_END ) {
-	use_goal = goal;
-	new_options = (options&MatchNoCase) | MatchArgDelim;
-      }
+      use_goal = (ps[1] == PT_END) ? goal : NULL;
       for ( limit = MAX_ARG_LEN ; limit > 0 ; limit-- ) {
       	ic = cis_peek(in);
 	if ( ic == EOF ) {
@@ -264,8 +315,10 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  else break;
 	}
 	if ( use_goal != NULL ) {
-	  if ( try_pattern( in, use_goal, NULL, NULL, new_options, goal ) &&
-		use_goal[0] != PT_END ) {
+	  assert( ! use_goal->options & MatchSwallow );
+	  if ( try_pattern( in, use_goal->template, NULL, use_goal->args,
+			    (use_goal->options | MatchArgDelim), goal ) &&
+	       use_goal->template[0] != PT_END ) {
 	    next_arg[0] = convert_output_to_input(outbuf);
 	    goto success;
 	  }
@@ -326,6 +379,8 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
     case PT_RECUR: { /* argument recursively translated */
       COStream outbuf;
       int domain;
+      struct goal_state goal_info;
+      Goal new_goal;
       if ( next_arg == NULL ) /* matching only up to first argument */
 	goto success;
       assert( next_arg[0] == NULL );
@@ -347,8 +402,15 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	}
       }
 #endif
-      if ( translate ( in, domains[domain], outbuf,
-		       ( ps[1]==PT_END? goal : ps+1 ) ) ) {
+      if ( ps[1] == PT_END )
+	new_goal = goal;
+      else {
+	goal_info.template = ps+1;
+	goal_info.args = all_args;
+	goal_info.options = local_options & ~ MatchSwallow;
+	new_goal = &goal_info;
+      }
+      if ( translate ( in, domains[domain], outbuf, new_goal ) ) {
 	*next_arg++ = convert_output_to_input( outbuf );
 	*next_arg = NULL;
 #ifdef TRACE
@@ -380,7 +442,10 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
       int num_found;
       boolean optional;
       boolean inverse;
-      unsigned goal_char;
+      unsigned goal_char, alt_goal_char;
+      struct goal_state terminator_data;
+      Goal terminator;
+
       num_found = 0;
       parms = *++ps;
       optional = parms & 0x40;
@@ -388,12 +453,25 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
       kind = ('A'-1) + (parms & 0x3F);
       num_wanted = (*++ps) - 1;
       goal_char = get_goal_char(ps+1);
-      if ( goal_char == ENDOP && goal != NULL )
-	goal_char = get_goal_char(goal);
+      if ( goal_char == ENDOP && goal != NULL ) {
+	goal_char = get_goal_char(goal->template);
+	terminator = goal;
+      }
+      else {
+	terminator_data.template = ps+1;
+	terminator_data.args = all_args;
+	terminator_data.options = local_options;
+	terminator = &terminator_data;
+      }
       if ( num_wanted >= 0xFE )
 	num_wanted = -1;
       else if ( !optional )
 	goal_char = ENDOP;
+      alt_goal_char = goal_char;
+      if ( (terminator->options & MatchNoCase) && !ISOP(goal_char) ) {
+	goal_char = tolower(goal_char);
+	alt_goal_char = toupper(goal_char);
+      }
       outbuf = next_arg != NULL ? make_buffer_output_stream() : NULL;
       for ( ; ; ) {
 	boolean ok;
@@ -452,11 +530,12 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	    break;
 	  if ( next_arg == NULL ) /* matching only up to first argument */
 	    goto success;
-	  if ( ( ic == goal_char ||
+	  if ( ( ((unsigned)ic) == goal_char ||
+		 ((unsigned)ic) == alt_goal_char ||
 	         ( goal_char == UPOP(PT_SPACE) && isspace(ic) &&
 		   ( optional || isspace(cos_prevch(outbuf)) ) ) ) &&
-	       try_pattern( in, ps+1, NULL, all_args,
-			    (options & MatchNoCase), goal ) )
+	       try_pattern( in, terminator->template, NULL, terminator->args,
+			    (terminator->options & MatchNoCase), goal ) )
 	    /* would be valid constituent except that it appears in the
 	       template as a terminator. */
 	    break;
@@ -469,8 +548,9 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  cos_putch(outbuf, getch_marked(&marker));
 	} /* end ok */
 	else if ( ignore_whitespace && isspace(ic) && num_found == 0 &&
+		  !( ic == '\n' && (local_options & MatchLine) ) &&
 		  ( kind=='Y' || kind=='C' || !isident(cis_prevch(in)) ) &&
-		  ( marker.marked || !(local_options & MatchArgDelim) ) ) {
+		  marker.marked /* not beginning of template */ ) {
 	  (void)getch_marked(&marker);
 	  continue;
 	}
@@ -507,6 +587,8 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 
     case PT_REGEXP: {
        CIStream value;
+       if ( next_arg == NULL ) /* matching only up to first argument */
+	 goto success;
        value = match_regexp ( in, *++ps -1 );
        if ( value == NULL ) {
 	 TRACE_FAILURE( "regular expression" );
@@ -519,40 +601,35 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 
     case PT_PUT_ARG: { /* match against value of previous argument */
 	CIStream arg;
-	int ac, kc;
-	if ( next_arg == NULL ) /* matching only up to first argument */
+	if ( all_args == NULL ) /* matching only up to first argument */
 	  goto success;
 	arg = all_args[ (*++ps) - 1 ];
-	if ( arg == NULL )
-	  goto failure;
-	cis_rewind(arg);
-	while ( ( ac = cis_getch(arg) ) != EOF ) {
-	 loop1:
-	  kc = cis_peek(in);
-	  if ( ac == kc )
-	    (void)getch_marked(&marker);
-	  else if ( ignore_whitespace && isspace(kc) &&
-		    !( ic == '\n' && (local_options & MatchLine) ) ) {
-	    (void)cis_getch(in);
-	    goto loop1;
-	  }
+	if ( arg == NULL ) {
+	  if ( next_arg == NULL )
+	    goto success;
 	  else goto failure;
 	}
-	break;
+	cis_rewind(arg);
+	if ( match_to_stream(&marker, arg, local_options) )
+	  break;
+	else goto failure;
     }
 
     case PT_VAR1: {
 	char vname[2];
-	const unsigned char* value;
+	const char* value;
 	size_t length;
+	CIStream arg;
+	boolean ok;
 	vname[0] = *++ps;
 	vname[1] = '\0';
-    	value = (const unsigned char*) get_var(vname,FALSE,&length);
-	for ( ; length > 0 ; length-- )
-	  if ( ((int)*value++) == cis_peek(in) )
-	    (void)getch_marked(&marker);
-	  else goto failure;
-	break;
+    	value = get_var(vname, FALSE, &length);
+	arg = make_string_input_stream(value, length, FALSE);
+	ok = match_to_stream(&marker, arg, local_options);
+	cis_close(arg);
+	if ( ok )
+	  break;
+	else goto failure;
       }
 
     case PT_SPACE: /* at least one space required */
@@ -670,8 +747,8 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	if ( ps-1 == patstring || cis_peek(in) == EOF )
 	  break;
 	else if ( goal != NULL && ps[0] == PTX_FINAL &&
-		  try_pattern( in, goal, NULL, NULL,
-			       (options & ~MatchSwallow), NULL) )
+		  try_pattern( in, goal->template, NULL, goal->args,
+			       (goal->options & ~MatchSwallow), NULL) )
 	  break;
     	else goto failure;
       case PTX_POSITION: /* leave input stream here after match */
@@ -722,7 +799,7 @@ again:
 	   ( !(local_options & MatchNoCase) || toupper(ic) != toupper(pc) ) ){
 	if ( ignore_whitespace && isspace(ic) &&
 	     ( !isident(pc) || !isident(cis_prevch(in)) ) &&
-	     ( marker.marked || !(local_options & MatchArgDelim) ) &&
+	     marker.marked /* don't skip before beginning of template */ &&
 	     !( ic == '\n' && (local_options & MatchLine) ) ) {
 	  (void)getch_marked(&marker);
 	  goto again;
@@ -730,7 +807,7 @@ again:
 #ifdef TRACE
 	if ( trace_switch &&
 	     (local_options & (MatchArgDelim|MatchSwallow))==MatchSwallow )
-	  trace( &marker, FAIL, "'%s'", show_char(pc) );
+	  trace( &marker, FAIL, show_char(pc) );
 #endif
 	goto failure;
       }
@@ -777,7 +854,7 @@ static int global_options;
 Pattern current_rule = NULL;
 
 static boolean
-try_match( CIStream in, Pattern pat, COStream out, const unsigned char* goal )
+try_match( CIStream in, Pattern pat, COStream out, Goal goal )
 {
   boolean result;
   varp varmark;
@@ -812,8 +889,7 @@ try_match( CIStream in, Pattern pat, COStream out, const unsigned char* goal )
 }
 
 static boolean
-try_list( CIStream in, Patterns p, COStream out,
-		  const unsigned char* goal ) {
+try_list( CIStream in, Patterns p, COStream out, Goal goal ) {
   Pattern pat;
   boolean result = FALSE;
   for ( pat = p->head ; pat != NULL ; pat = pat->next ) {
@@ -830,7 +906,7 @@ try_list( CIStream in, Patterns p, COStream out,
 
 static boolean
 try_patterns( int ch, CIStream in, MarkBuf* start, Patterns p, COStream out,
-		  const unsigned char* goal ) {
+	      Goal goal ) {
     MarkBuf mark;
     if ( p->dispatch != NULL ) {
       Patterns sub;
@@ -878,14 +954,15 @@ try_patterns( int ch, CIStream in, MarkBuf* start, Patterns p, COStream out,
 static int domains_checked = 1;
 
 boolean translate ( CIStream in, Domain domainpt, COStream out,
-		   const unsigned char* goal ){
-  Domain idp;
+		    Goal goal_info ) {
   int ch, ch2;
-  unsigned goal_char;
+  const unsigned char* goal;
+  unsigned goal_char, alt_goal_char;
   enum Translation_Status save_fail;
   CIStream save_input;
   boolean no_match = TRUE;
   boolean discard = FALSE;
+  boolean beginning = TRUE;
 
   save_input = input_stream;
   if ( save_input == NULL || cis_pathname(in) != NULL ||
@@ -903,7 +980,19 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
     global_options |= MatchLine;
   if ( case_insensitive )
     global_options |= MatchNoCase;
-  goal_char = goal == NULL ? ENDOP : get_goal_char(goal);
+  if ( goal_info == NULL ) {
+    goal = NULL;
+    goal_char = ENDOP;
+  }
+  else {
+    goal = goal_info->template;
+    goal_char = get_goal_char(goal);
+    alt_goal_char = goal_char;
+    if ( (goal_info->options & MatchNoCase) && !ISOP(goal_char) ) {
+      goal_char = tolower(goal_char);
+      alt_goal_char = toupper(goal_char);
+    }
+  }
   save_fail = translation_status;
   translation_status = Translate_Complete;
   if ( discard_unmatched && domainpt->name[0] == '\0' )
@@ -915,7 +1004,7 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
     assert( ps[0] == PT_AUX );
     if ( ps[1] == PTX_INIT ||
 	 ( ps[1] == PTX_BEGIN_FILE && cis_prevch(in) == EOF ) )
-      if ( try_match( in, pat, out, goal ) ) {
+      if ( try_match( in, pat, out, goal_info ) ) {
 	no_match = FALSE;
 	if ( translation_status == Translate_Continue )
 	  translation_status = Translate_Complete;
@@ -932,26 +1021,36 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
   }
 
   for ( ; translation_status == Translate_Complete ; ) {
+    Domain idp;
     ch = cis_peek(in);
     if ( ch == EOF )
       break;  /* done */
     else if ( goal_char != ENDOP ) {
-      if ( ch == goal_char ||
+      if ( ((unsigned)ch) == goal_char || ((unsigned)ch) == alt_goal_char ||
     	   (goal_char == UPOP(PT_SPACE) && isspace(ch) &&
-	    !( no_match && ignore_whitespace ) ) ) {
-	if ( goal_char == goal[0] &&
-	     (goal[1] == PT_END || goal[1] == PT_MATCH_ANY ||
-	      goal[1] == PT_MATCH_ONE || goal[1] == PT_RECUR ) )
-	  /* short-cut for single-character delimiter */
-	  break;  /* done */
-	else /* use general pattern matching */
-	  if ( try_pattern( in, goal, NULL, NULL,
-	     		    (global_options & ~MatchSwallow), NULL ) )
+	    !( beginning && ignore_whitespace ) ) ) {
+	if ( ( goal_char == goal[0] &&
+	       (goal[1] == PT_END || goal[1] == PT_MATCH_ANY ||
+		goal[1] == PT_MATCH_ONE || goal[1] == PT_RECUR ) )
+	     /* short-cut for single-character delimiter */
+	     || /* use general pattern matching */
+	     try_pattern( in, goal, NULL, goal_info->args,
+			  goal_info->options, NULL ) ) {
+	  Pattern tailpat;
+	    /* For a domain whose default rule is ``=@fail'',
+	       an argument should not match an empty string just
+	       because the terminator is found before starting. */
+	  if( !( beginning && NULL != ( tailpat = domainpt->patterns.tail ) &&
+		 tailpat->pattern[0] == PT_END && /* empty template */
+		 tailpat->action[0] == PT_OP &&
+		 tailpat->action[1] == OP_FAIL ) )
 	    break;
+	}
       }
+      beginning = FALSE;
     }
     for ( idp = domainpt ; idp != NULL ; idp = idp->inherits )
-      if ( try_patterns( ch, in, NULL, &idp->patterns, out, goal ) ) {
+      if ( try_patterns( ch, in, NULL, &idp->patterns, out, goal_info ) ) {
 	/* match found */
 	if ( translation_status != Translate_Complete ) {
 	  boolean result = translation_status != Translate_Failed;
@@ -978,7 +1077,7 @@ next_char: ;
     const unsigned char* ps = pat->pattern;
     if ( ps[1] == PTX_FINAL ||
 	 ( ps[1] == PTX_END_FILE && cis_peek(in) == EOF) )
-      if ( try_match( in, pat, out, goal ) )
+      if ( try_match( in, pat, out, goal_info ) )
 	no_match = FALSE;
   }
   if ( no_match && cis_prevch(in) == EOF && cis_peek(in) == EOF ) {
