@@ -1,6 +1,18 @@
 
 /* $Id$ */
 
+/*
+ * $Log$
+ * Revision 1.6  1995/07/04 23:43:33  gray
+ * When on Macintosh, use ':' as the directory delimiter.
+ *
+ * Revision 1.5 1995/05/22 02:52:28 gray
+ * Add recognition of Windows NT - treat the same as MS-DOS.
+ *
+ * Revision 1.4 1995/05/08 03:19:46 gray
+ * Define `MSDOS' if `__MSDOS__' is defined.
+ */
+
 #ifndef UTIL_H
 #define UTIL_H
 
@@ -24,9 +36,11 @@ char* str_dup( const char* x ); /* return new copy of string */
 char* str_dup_len( const char* x, int len );
 
 /* directory delimiter character */
-#ifdef MSDOS
+#if defined(MSDOS)
 #define DirDelim '\\'
-#else   /* assume Unix */
+#elif defined(MACOS)
+#define DirDelim ':'
+#else /* assume Unix */
 #define DirDelim '/'
 #endif
 
