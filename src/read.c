@@ -11,10 +11,14 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.14  1995/08/13 05:35:49  gray
-/* New macro `char_kind' to ensure uniform handling of EOF -- fixes crash on
-/* EOF at end of inherited domain rule.
+/* Revision 1.15  1995/08/20 05:34:40  gray
+/* Treat variable in template as literal for argument terminator.
+/* Fix to not free patterns installed in multiple places.
 /*
+ * Revision 1.14  1995/08/13  05:35:49  gray
+ * New macro `char_kind' to ensure uniform handling of EOF -- fixes crash on
+ * EOF at end of inherited domain rule.
+ *
  * Revision 1.13  1995/08/06  02:26:47  gray
  * Fix bug on "\A" (regression in previous version).
  * Add "<J>" (match lower case) and "<K>" (match upper case).
@@ -50,6 +54,7 @@
 #include <assert.h>
 #include "reg-expr.h"
 #include "main.h"  /* for EXS_SYNTAX */
+#include "var.h"	/* for get_var */
 
 boolean line_mode = FALSE;
 boolean token_mode = FALSE;
@@ -140,7 +145,7 @@ static char char_table[NUMCHAR+1] = {
  /* 20: */ PI_LITERAL };
 
 #if EOF == (-1)
-#define char_kind(ch) ((enum char_kinds)(char_table[(ch)+1]))
+#define char_kind(ch) ((enum char_kinds)((char_table+1)[ch]))
 #define set_char_kind(ch,k) char_table[(ch)+1] = (k)
 #else
 /* I don't know of any implementation where EOF is not -1, but the ANSI
@@ -1536,10 +1541,27 @@ again:
       case PT_QUOTE:
 	result = *a++;
 	break;
+      case PT_VAR1:
+	if ( for_goal ) {
+	  char vname[2];
+	  const char* value;
+	  size_t length;
+	  vname[0] = *a++;
+	  vname[1] = '\0';
+	  value =  get_var(vname,TRUE,&length);
+	  if ( value != NULL ) {
+	    if ( length == 0 )
+	      goto again;
+	    else {
+	      result = value[0];
+	      break;
+	    }
+	  }
+	}
+	/* else fall-through */
       case PT_RECUR:
       case PT_REGEXP:
       case PT_PUT_ARG:
-      case PT_VAR1:
 	result = UPOP(ch) | *a++;
 	break;
       case PT_SPECIAL_ARG:
@@ -1610,7 +1632,7 @@ compare_specificity( const unsigned char* a, const unsigned char* b ) {
 }
 
 static void
-chain_pattern( Pattern pat, Patterns patset ) {
+chain_pattern( Pattern pat, Patterns patset, int key ) {
   boolean undef = pat->action != NULL && pat->action[0] == PT_UNDEF;
      if ( patset->tail == NULL ) {
      	if ( undef ) {
@@ -1655,10 +1677,16 @@ chain_pattern( Pattern pat, Patterns patset ) {
 	    } /* end PT_UNDEF */
 	    else { /* newer definition replaces older */
 	    if ( old->action != pat->action ) {
-	      free((char*)old->action);
+	      /* Have to be careful not to delete an action that might
+		 have been installed in more than one place as the result of
+		 a "\W" or "\S" at the beginning of the template.
+		 This crude hack favors memory leaks over corrupted data.*/
+	      if ( !isspace(key) )
+		free((char*)old->action);
 	      old->action = pat->action;
 	    }
 	    if ( old->pattern != pat->pattern )
+	      if ( !isspace(key) )
 	      free((char*)pat->pattern);
 	    free(pat);
 	    return;
@@ -1690,11 +1718,15 @@ static void
 install_pattern( const unsigned char* template, Pattern pat,
 	     	 Patterns patset );
 
+boolean
+literal_key( const unsigned char* ps );
+
 static void
 install_pattern_for_key( unsigned char key, const unsigned char* rest,
 	     		Pattern pat, Patterns patset ) {
   int index;
   Patterns sub;
+  const unsigned char* more;
 
   index = dispatch_index(key);
   if ( patset->dispatch == NULL ) {
@@ -1715,9 +1747,13 @@ install_pattern_for_key( unsigned char key, const unsigned char* rest,
   else if ( sub->dispatch != NULL )
     install_pattern( rest, pat, sub );
   else if ( sub->head != sub->tail &&
-	    ( key == pat->pattern[0] ||
-	      ( pat->pattern[0] == PT_QUOTE && key == pat->pattern[1] ))) {
-    /* already have at least two entries and adding a third;
+	    ( (more=pat->pattern), (key==get_template_element(&more,FALSE))) &&
+	    more == rest && /* not already at second level */
+	    ( literal_key(more) || 
+	      ( (more=sub->head->pattern) , get_template_element(&more,FALSE) ,
+		literal_key(more) ) ) ) {
+    /* already have at least two entries and adding a third,
+       and at least one of them has a literal following the initial key;
        change to use a second-level dispatch table. */
     Pattern old;
     old = sub->head;
@@ -1725,16 +1761,18 @@ install_pattern_for_key( unsigned char key, const unsigned char* rest,
     sub->tail = NULL;
     while ( old != NULL ) {
       Pattern next;
+      const unsigned char* old_template;
       next = old->next;
       old->next = NULL;
-      if ( old->pattern[0] == key )
-	install_pattern( old->pattern+1, old, sub );
-      else chain_pattern( old, sub );
+      old_template = old->pattern;
+      if ( get_template_element(&old_template,FALSE) == key )
+	install_pattern( old_template, old, sub );
+      else chain_pattern( old, sub, key );
       old = next;
     }
     install_pattern( rest, pat, sub );
   }
-  else chain_pattern( pat, sub );
+  else chain_pattern( pat, sub, key );
 }
 
 static void
@@ -1773,7 +1811,7 @@ install_pattern( const unsigned char* template, Pattern pat,
   if ( key == PT_QUOTE )
     key = *rest++;
   else if ( is_operator(key) ) {
-    chain_pattern( pat, patset );
+    chain_pattern( pat, patset, key );
     return;
   }
   install_pattern_for_key( key, rest, pat, patset );
