@@ -49,7 +49,7 @@ put_number( COStream out, long number ) {
   cos_puts(out, buf);
 }
 
-#if defined(_QC)
+#if defined(_QC) || defined(_MSC_VER) /* Microsoft C or Quick C */
 #pragma check_stack(on)
 #endif
 
@@ -643,6 +643,11 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 					   cis_whole_string(inbuf)) );
 	  cis_close(dir);
 	  break;
+	}
+	case OP_EXP_WILD: {
+       	 inbuf = function_operand( &as, args );
+	 expand_wildcard ( cis_whole_string(inbuf), out );
+	 break;
 	}
 
 	case OP_ADD:

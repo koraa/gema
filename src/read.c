@@ -10,7 +10,7 @@
   an acknowledgment of the original source.
  *********************************************************************/
 
-#if defined(_QC)
+#if defined(_QC) || defined(_MSC_VER) /* Microsoft C or Quick C */
 #pragma check_stack(off)
 #endif
 
@@ -598,6 +598,7 @@ static struct action_ops {
     { "end", OP_EXIT, 0 },
     { "err", OP_ERR, 1},
     { "exit-status", OP_EXIT_STATUS, 1 },
+    { "expand-wild", OP_EXP_WILD, 1 },
     { "fail", OP_FAIL, 0 },
     { "file", OP_FILE, 0 },
     { "file-time", OP_MODTIME, 0 },

@@ -115,6 +115,7 @@ enum Operators {
  OP_COMBINEPATH,	/* args are directory, name, and type */
  OP_RELPATH,		/* relative pathname (2nd arg in dir of 1st) */
  OP_PROBE,		/* test whether pathname is defined */
+ OP_EXP_WILD,		/* expand wild card file name */
 
 	/* output formatting: */
  OP_TAB,		/* skip to particular output column */
