@@ -12,6 +12,10 @@
 
 /*
  * $Log$
+ * Revision 1.15  2004/12/29 00:10:15  dngray
+ * Extend range of @radix by using strtoul instead of strtol.
+ * (Suggested by Alex Karahalios.)
+ *
  * Revision 1.14  2004/09/18 22:57:05  dngray
  * Allow MAX_DOMAINS to be larger than 255
  * (merged changes contributed by Alex Karahalios).
@@ -37,8 +41,7 @@
  * introduce spaces that were not present in the original text.
  *
  * Revision 1.7  1995/07/04  23:36:22  gray
- * Use separate segment on Macintosh --
- * from David A. Mundie <mundie@telerama.lm.com>
+ * Use separate segment on Macintosh -- from David A. Mundie
  *
  * Revision 1.6  1995/06/12 02:58:25 gray
  * Add OP_OUTCOL and OP_GET_SWITCH.
@@ -769,16 +772,16 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 
 	case OP_RADIX: {
 	  int from, to;
-	  long value;
+	  unsigned long value;
 	  char* string;
 	  char* end;
 	  const char* fmt;
-	  char buf[20];
+	  char buf[24]; /* enough for 64 bits in octal */
 	  from = (int)numeric_operand( &as, args );
 	  to = (int)numeric_operand( &as, args );
 	  inbuf = function_operand( &as, args );
 	  string = cis_whole_string(inbuf);
-	  value = strtol( string, &end, from );
+	  value = strtoul( string, &end, from );
 	  if ( *end != '\0' )
 	    input_error ( input_stream, EXS_NUM,
 		"Invalid argument for radix %d conversion: \"%.99s\"\n",
@@ -791,7 +794,9 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	    if ( to != 10 )
 	      input_error ( input_stream, EXS_NUM,
 	    		    "Unsupported radix: %d\n", to);
-	    fmt = "%ld";
+	    while ( isspace(string[0]) )
+	      string++;
+	    fmt = (string[0]=='-') ? "%ld" : "%lu";
 	  }
 	  sprintf(buf, fmt, value);
 	  cos_puts(out, buf);
