@@ -11,9 +11,12 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.18  2001/12/15 20:22:23  gray
-/* Clean up compiler warnings.
+/* Revision 1.19  2003/09/06 00:36:03  gray
+/* Don't match empty string at EOF when default rule is ``=@fail''.
 /*
+ * Revision 1.18  2001/12/15  20:22:23  gray
+ * Clean up compiler warnings.
+ *
  * Revision 1.17  1996/04/08  05:23:04  gray
  * Use new `goal_state' structure to pass additional context information for
  * goal match; this allows access to previous arguments and the correct local
@@ -856,6 +859,20 @@ again:
 static int global_options;
 Pattern current_rule = NULL;
 
+/* does the domain have a default rule "=@fail"? */
+static boolean
+default_fail( Domain domainpt )
+{
+  Pattern tailpat;
+  tailpat = domainpt->patterns.tail;
+  if ( tailpat == NULL ) {
+    return FALSE;
+  }
+  else return ( tailpat->pattern[0] == PT_END && /* empty template */
+		tailpat->action[0] == PT_OP &&
+		tailpat->action[1] == OP_FAIL );
+}
+
 static boolean
 try_match( CIStream in, Pattern pat, COStream out, Goal goal )
 {
@@ -1027,8 +1044,14 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
   for ( ; translation_status == Translate_Complete ; ) {
     Domain idp;
     ch = cis_peek(in);
-    if ( ch == EOF )
-      break;  /* done */
+    if ( ch == EOF ) {
+      /* For a domain whose default rule is ``=@fail'',
+	 an argument should not match an empty string just
+	 because the end of file is found before starting. */
+      if( !( beginning && default_fail(domainpt) ) ) {
+	break;  /* done */
+      }
+    }
     else if ( goal_char != ENDOP ) {
       if ( ((unsigned)ch) == goal_char || ((unsigned)ch) == alt_goal_char ||
     	   (goal_char == UPOP(PT_SPACE) && isspace(ch) &&
@@ -1040,19 +1063,15 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
 	     || /* use general pattern matching */
 	     try_pattern( in, goal, NULL, goal_info->args,
 			  goal_info->options, NULL ) ) {
-	  Pattern tailpat;
 	    /* For a domain whose default rule is ``=@fail'',
 	       an argument should not match an empty string just
 	       because the terminator is found before starting. */
-	  if( !( beginning && NULL != ( tailpat = domainpt->patterns.tail ) &&
-		 tailpat->pattern[0] == PT_END && /* empty template */
-		 tailpat->action[0] == PT_OP &&
-		 tailpat->action[1] == OP_FAIL ) )
+	  if( !( beginning && default_fail(domainpt) ) )
 	    break;
 	}
       }
-      beginning = FALSE;
     }
+    beginning = FALSE;
     for ( idp = domainpt ; idp != NULL ; idp = idp->inherits )
       if ( try_patterns( ch, in, NULL, &idp->patterns, out, goal_info ) ) {
 	/* match found */
