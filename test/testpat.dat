@@ -28,7 +28,7 @@ cmtb:\/\*<cmtb>\*\/=\/\*$1\*\/
  <xo> :O=O
 <xo> :=@terminate
 tic <xo> tac=Tic Tac\: \"$1\"
- :\[\L*<xo>*\]=\[\"$1\", \"$2\", \"$3\"\]
+ :\[\L*<xo>*\]=\[\"${1}\", \"${2}\", \"${003}\"\]
 :\Iand\W<dots> =and etc. ;
 <dots>:\.=\.;?=@fail{};
 
@@ -107,9 +107,8 @@ c-groups:<W> = word($1);<O> = octal($1);<X> = hex($1)
 c-groups:<A> = alnum($1);<I> = id($1);<F> = file($1);<G> = graphic($1)
 c-groups:\L<T>= text($1);\L<U>= universal($1)
 
+\@Letters\I=@bind{i;a}@repeat{30;$i @incr{i}}@unbind{i}@repeat{0;@out{x$x}}
 
-\@Letters\I=@bind{i;a}@genletters{@right{30; }}@unbind{i}
-genletters:?=$i @incr{i}
 :\@Wrap(<wrapped>)=\N$1
 @set-wrap{30;\s\s\s\s}
 wrapped:<I> =@wrap{$1} ;
