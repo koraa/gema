@@ -55,6 +55,7 @@ comma:<D1><D3><-D0>=$1,$2!
 incroman:i\Z=ii;iii\Z=iv;iv\Z=v;v\Z=vi;viii\Z=ix;ix\Z=x;x\Z=xi;xix\Z=xx;
 :\@begin\W(\Wroman_list\W)=@set{rn;i}
 :\@roman_item =\N\ \(${rn}\) \
+	! Test using a comment in a continuation  \
 	@set{rn;@incroman{${rn}}}
 :\@end\W(\Wroman_list\W)=
 
@@ -165,3 +166,10 @@ Hit <i>$Q<i>=Hit $1[It]$2
 Swat <expr>$Q=Swat $1[It]
 ! The next rule is a duplicate, but shouldn't do any harm.
 \N\Wend\W\N=\N\tStop\!\N
+
+! The following is to test fix for bug in version 1.2:
+method-body:\Iself.<I>=$0
+method-body:<I2><i>\I=self.$0
+method-body:?=?
+\@MethBug\I<s><method-body>\Iend method=$0
+
