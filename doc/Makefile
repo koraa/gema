@@ -1,6 +1,8 @@
 
 # $Id$
 
+all: doc.ps gema.ps doc.html gema.html
+
 #	user/reference manual
 
 TEXFILES = doc.tex overview.tex notation.tex function.tex conclude.tex
@@ -9,13 +11,18 @@ doc.dvi: ${TEXFILES}
 	latex doc.tex
 
 doc.ps: doc.dvi
-	dvi2ps doc.dvi > doc.ps
+	dvi2ps doc.dvi > $@
 
 view: doc.dvi
 	xtex doc.dvi &
 
-doc.html: ${TEXFILES}
-	latex-to-html doc.tex doc.html
+doc.html: ${TEXFILES} latex-to-html
+	./latex-to-html doc.tex $@
+
+latex-to-html:
+	gema -line -literal './' -p '/*/latex.dat=../examples/latex.dat' \
+		-in ../examples/latex.sh -out $@
+	chmod a+x $@
 
 # ------------------------------------------------------------------
 
@@ -28,7 +35,7 @@ gema.ps: gema.1
 	ptroff -t -man gema.1 > $@
 
 gema.html: gema.1
-	gema -f ../examples/man-html.dat gema.1 gema.html
+	gema -f ../examples/man-html.dat gema.1 $@
 
 # ------------------------------------------------------------------
 
