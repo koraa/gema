@@ -46,7 +46,7 @@ define macros.  That could be done by defining rules such as:
   ARGV:\N-D<I>\n=@define{\\I$1\\I\=1}
 \end{verbatim}
 
-Instead of adding to the built-in rules, it is also possible to supress
+Instead of adding to the built-in rules, it is also possible to suppress
 the built-in rules and define your own rules from scratch.  To do this,
 start the program with a command line like:\newline
 \verb|  gema -prim |{\em pattern-file  \ldots}
@@ -55,6 +55,8 @@ The \verb/-prim/ (``primitive mode'') option suppresses loading of the
 built-in rules and reads patterns from the specified file.  Then the
 remainder of the command line is processed according to whatever {\tt
 ARGV} rules were defined in that file.
+Note that even the default behavior of reading from standard input and
+writing to standard output is implemented by the {\tt ARGV} rules.
 (The \verb/-prim/ option is the only one that is hard-coded instead of
 being implemented by patterns.)
 
@@ -66,6 +68,8 @@ designing the real program to replace it.  However, as usually happens
 in the real world, we ship the prototype because there isn't time to do
 any more.  There is room for improvement in the areas of consistency,
 ease of use, and performance at least.
+Also, this documentation was written rather hurriedly and is not nearly as
+polished as I would like.
 
 Since this was developed by one person as a spare time hobby, it has not
 had very extensive testing, so there are likely to be bugs.  The
@@ -92,7 +96,8 @@ literal text, in addition to using the backslash for quoting individual
 characters.
 \item A function to return the pathname fo the current directory.
 \item Record the file and line that each rule came from, to be used in
-run-time error messages, and to enable having a trace mode to list what
+run-time error messages.
+\item Provide a trace mode to list what
 templates are and are not matched as an aid for debugging pattern files.
 \item A template operator for specifying an action to be taken after all
 input files have been processed.
