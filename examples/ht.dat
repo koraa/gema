@@ -2,10 +2,14 @@
 
 ! case insensitive
 @set-switch{i;1}
+! literals:
 @set-syntax{L;\/}
 
 \B=\%% "@outpath" generated @just-date{@datime} by "@getenv{USER;}"\
-  \n%% Converted from "@inpath" dated @just-date{@file-time}\n\n
+  \n%% Converted from "@inpath" dated @just-date{@file-time}\n\n\
+  \\begin\{document\}\n\n\\chardef\\ttlb\=\`\\\{\n\\chardef\\ttrb\=\`\\\}\n
+
+\E=\N\n\\end\{document\}\n
 
 \<\!-- <P> --\>=\% $1\n
 
@@ -21,8 +25,6 @@
 \#=\\\#
 _=\\_
 \&nbsp\;=\~
-! assuming ISO 8859 character set, use its non-breaking-space character:
-\xA0=\~
 \==\\\=
 
 "<quot>"=``@{$1}''
@@ -62,13 +64,24 @@ pre:\&<L>\;=@{$0}
 
 \<DL\>=\\begin\{description\}
 \<LI\>=\\item ;
-\<DT\>#\<DD\>=\\item\[@trim{#}\]
+\<DT\>#\<DD\>=\\item\[@fixarg{#}\]
 \</DL\>=\\end\{description\}
 \<UL\>=\\begin\{itemize\}
 \</UL\>=\\end\{itemize\}
 \<OL\>=\\begin\{enumerate\}
 \</OL\>=\\end\{enumerate\}
-trim:\A\S=;\S\Z=;
+
+! idiosyncratic TeX doesn't allow \verb in arguments.
+fixarg:\A\S=;\S\Z=;
+fixarg:\\verb<-L1>*$1=\{\\tt @vb{*}\}
+fixarg:\\<-L1>=$0
+! can't use "\{" in "\tt" enviroment because it uses the wrong font.
+vb:\{<Y0>=\\ttlb;
+vb:\}<Y0>=\\ttrb;
+vb:\{=\\ttlb ;
+vb:\}=\\ttrb ;
+vb:_=\\_;\%=\\\%;\$=\\\$;\#=\\\#;\&=\\\&;
+vb:\\=\\backslash ;
 
 \<BLOCKQUOTE\>=\\begin\{quotation\}
 \</BLOCKQUOTE\>=\\end\{quotation\}
@@ -78,13 +91,15 @@ trim:\A\S=;\S\Z=;
 \<SUB\>#\</SUB\>=\$\_\{#\}\$
 
 \\=\\backslash ;
-\<VAR\><L>\</VAR\>=\$$1\$
 ...=\\ldots ;
 
+! the following 5 assume the input uses ISO 8859 character set (not PC)
 \©=\\copyright ;
 \§=\\S ;
 \¶=\\P ;
 \¤=\\bull ;
+\xA0=\~
+
 \<HR\>=\\hline ;
 
 just-date:<L> <L> <D> <D>\:<D>\:<D> <D>=$2 $3\, $7@end
@@ -94,6 +109,7 @@ just-date:\n=;
 \<I\>#\</I\>=\{\\it #\}
 \<B\>#\</B\>=\{\\bf #\}
 \<STRONG\>#\</STRONG\>=\{\\bf #\}
+\<VAR\><L>\</VAR\>=\$$1\$
 \<VAR\>#\</VAR\>=\{\\em #\}
 
 \<TT\><vlit>\</TT\>=@verb{$1}
