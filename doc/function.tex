@@ -865,7 +865,7 @@ Set the internationalization locale, using the C function
 {\tt setlocale}.
 A typical usage would be:
 \begin{verbatim}
-    @set-locale{getenv{LANG;C}}
+    @set-locale{@getenv{LANG;C}}
 \end{verbatim}
 This may affect which characters are considered to be letters.
 Currently this has no effect on MS-DOS.
