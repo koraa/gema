@@ -1,0 +1,5 @@
+
+extern enum Foo_Status
+  { Foo_Complete, Foo_Continue,Foo_Exited, Foo_Failed }
+  foo_status;
+
