@@ -11,9 +11,12 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.11  1995/07/27 03:00:45  gray
-/* Fix handling of "\B" followed by an argument instead of a literal.
+/* Revision 1.12  1995/07/27 05:31:34  gray
+/* Fix a couple of problems with spaces with "-w".
 /*
+ * Revision 1.11  1995/07/27  03:00:45  gray
+ * Fix handling of "\B" followed by an argument instead of a literal.
+ *
  * Revision 1.10 1995/06/12 03:05:17 gray
  * Fixed bug in handling of rule domain encloses in angle brackets
  * ("<...>:...").  Add new functions @get-switch and @out-column.
@@ -964,7 +967,7 @@ charop: {
 	  (void)cis_getch(s);
 	if ( ap > bp && isident(ap[-1]) && isident(cis_peek(s)) )
 	  pc = ' ';
-	else if ( token_mode )
+	else if ( ap <= bp || ap[-1] != PT_ID_DELIM )
 	  pc = PT_ID_DELIM;
 	else continue;
 	break;
@@ -1342,12 +1345,20 @@ dispatch:
 	   bp = start_bp;
        continue;
     }
-    case PI_IGNORED_SPACE:
-      	while ( char_table[cis_peek(s)] == PI_IGNORED_SPACE )
+    case PI_IGNORED_SPACE: {
+        int nextch;
+      	while ( char_table[nextch = cis_peek(s)] == PI_IGNORED_SPACE )
 	  (void)cis_getch(s);
-	if ( !( isident(*prev_bp) && isident(cis_peek(s)) ) )
-	  continue;
+	if ( !( isident(*prev_bp) && isident(nextch) ) ) {
+	  if ( char_table[nextch] != PI_LITERAL &&
+	       *prev_bp != PT_SKIP_WHITE_SPACE) {
+	    pc = PT_SKIP_WHITE_SPACE;
+	    break;
+	  }
+	  else continue;
+	}
 	/* else fall-through */
+    }
     case PI_SPACE:
     	pc  = PT_SPACE;
 	break;
