@@ -7,7 +7,7 @@
 #include <stdlib.h>
 
 #ifndef MSDOS
-#if defined(__MSDOS__) || defined(_MSDOS)
+#if defined(__MSDOS__) || defined(_MSDOS) || defined(_WIN32)
 #define MSDOS 1
 #endif
 #endif
