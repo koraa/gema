@@ -1,0 +1,110 @@
+! Convert HTML to LaTeX
+
+! case insensitive
+@set-switch{i;1}
+@set-syntax{L;\/}
+
+\B=\%% "@outpath" generated @just-date{@datime} by "@getenv{USER;}"\
+  \n%% Converted from "@inpath" dated @just-date{@file-time}\n\n
+
+\<\!-- <P> --\>=\% $1\n
+
+\&lt\;=\<
+\&gt\;=\>
+\&amp\;=\\\&
+\&quot\;="
+\&\#<D>\;=@int-char{$1}
+\{=\\\{
+\}=\\\}
+\%=\\\%
+\$=\\\$
+\#=\\\#
+_=\\_
+\&nbsp\;=\~
+! assuming ISO 8859 character set, use its non-breaking-space character:
+\xA0=\~
+\==\\\=
+
+"<quot>"=``@{$1}''
+quot:"=@fail
+quot:\<P\>=@fail
+quot:\<LI\>=@fail
+quot:\<<I><u>\>#\</$1\>=$0
+quot:\<=@fail
+"\L#"=``#''
+
+!\<BR\>=\\\\
+\<BR\>=\\linebreak\[4\]
+\<P\>\W=\N\n
+\N\W\n=
+
+\<HEAD\>=
+\<\/HEAD\>=
+\<BODY\>=
+\<\/BODY\>=
+\<HTML\>=
+\<\/HTML\>=@end
+\<A <match>\>#\</A\>=#
+match:\<#\>=\<#\>
+
+\<TITLE\>#\</TITLE\>=\\title\{\\bf #\}
+\<H1\>#\</H1\>=\\title\{\\bf #\}
+\<H2\>Part <D>\</H2\>\<H1\>#\</H1\>=\\part\{#\}
+\<H2\>Chapter <D>\</H2\>\W\<H1\>#\</H1\>=\\chapter\{#\}
+\<H2\>#\</H2\>=\N\n\\section\{#\}
+\<H3\>#\</H3\>=\\subsection\{#\}
+\<H4\>#\</H4\>=\\subsubsection\{#\}
+\<H5\>#\</H5\>=\\paragraph\{#\}
+\<H6\>#\</H6\>=\\subparagraph\{#\}
+
+\<PRE\><pre>\</PRE\>=\\begin\{verbatim\}$1\\end\{verbatim\}
+pre:\&<L>\;=@{$0}
+
+\<DL\>=\\begin\{description\}
+\<LI\>=\\item ;
+\<DT\>#\<DD\>=\\item\[@trim{#}\]
+\</DL\>=\\end\{description\}
+\<UL\>=\\begin\{itemize\}
+\</UL\>=\\end\{itemize\}
+\<OL\>=\\begin\{enumerate\}
+\</OL\>=\\end\{enumerate\}
+trim:\A\S=;\S\Z=;
+
+\<BLOCKQUOTE\>=\\begin\{quotation\}
+\</BLOCKQUOTE\>=\\end\{quotation\}
+
+! Note: SUB and SUP are only in level 3 (HTML+)
+\<SUP\>#\</SUP\>=\$\^\{#\}\$
+\<SUB\>#\</SUB\>=\$\_\{#\}\$
+
+\\=\\backslash ;
+\<VAR\><L>\</VAR\>=\$$1\$
+...=\\ldots ;
+
+\©=\\copyright ;
+\§=\\S ;
+\¶=\\P ;
+\¤=\\bull ;
+\<HR\>=\\hline ;
+
+just-date:<L> <L> <D> <D>\:<D>\:<D> <D>=$2 $3\, $7@end
+just-date:\n=;
+
+\<TT\><litq>\</TT\>=\{\\tt $1\}
+\<EM\>#\</EM\>=\{\\em #\}
+\<I\>#\</I\>=\{\\it #\}
+\<B\>#\</B\>=\{\\bf #\}
+\<CODE\><litq>\</CODE\>=\{\\tt $1\}
+\<SAMP\><litq>\</SAMP\>=\{\\tt $1\}
+\<KBD\>#\</KBD\>=\{\\tt #\}
+\<STRONG\>#\</STRONG\>=\{\\bf #\}
+\<VAR\>#\</VAR\>=\{\\em #\}
+
+litq:\"=\"
+litq::
+
+
+\<<I>\>#\</$1\>=@err{"@file" line @line\: unrecognized\: \<$1\>\n}$0
+\<<I>\>=@err{"@file" line @line\: unmatched\: \<$1\>\n}$0
+\</<I>\>=@err{"@file" line @line\: unmatched\: \</$1\>\n}$0
+
