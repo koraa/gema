@@ -57,9 +57,9 @@ enum char_kinds {
 };
 
 #define NUMCHAR 256
-static char default_syntax_chars[Num_Char_Kinds+1] =
+static unsigned char default_syntax_chars[Num_Char_Kinds+1] =
 		 ".\1\r*?#=$\\\\^ {;};:<>//@@!\0\0\0\0";
-static char syntax_chars[Num_Char_Kinds+1];
+static unsigned char syntax_chars[Num_Char_Kinds+1];
 
 static char char_table[NUMCHAR] = {
  /* 00: */ PI_LIT_CTRL,
@@ -102,12 +102,12 @@ static char char_table[NUMCHAR] = {
 
 void initialize_syntax(void) {
   int i;
-  strcpy(syntax_chars, default_syntax_chars);
+  memcpy(syntax_chars, default_syntax_chars, sizeof(syntax_chars));
   for ( i = 0x20 ; i < NUMCHAR ; i++ )
     char_table[i] = PI_LITERAL;
   char_table['\n'] = PI_END;
   for ( i = 0 ; i < Num_Char_Kinds ; i++ ) {
-    int ch = syntax_chars[i];
+    unsigned int ch = syntax_chars[i];
     if ( ch != '\0' )
       char_table[ch] = i;
   }
@@ -120,11 +120,11 @@ boolean is_operator(int x) {
 static enum char_kinds
 default_char_kind( int pc ) {
   const char* x;
-      x = strrchr(default_syntax_chars,pc);
+      x = strrchr((const char*)default_syntax_chars,(char)pc);
       if ( x == NULL )
 	return PI_LITERAL;
       else
-	return (enum char_kinds)(x - default_syntax_chars);
+	return (enum char_kinds)(x - (const char*)default_syntax_chars);
 }
 
 boolean set_syntax( int type, const char* char_set ) {
@@ -152,8 +152,12 @@ boolean set_syntax( int type, const char* char_set ) {
        break;
   } /* end switch */
   for ( s = char_set ; s[0] != '\0' ; s++ ) {
-    char_table[*(const unsigned char*)s] = k;
-    syntax_chars[k] = *s;
+    unsigned int ch = *(const unsigned char*)s;
+    unsigned char* scp = &syntax_chars[ char_table[ch] ];
+    if ( *scp == ch )
+      *scp = '\0';
+    char_table[ch] = k;
+    syntax_chars[k] = ch;
   }
   return TRUE;
 }
@@ -290,7 +294,7 @@ void quoted_copy( CIStream in, COStream out ) {
   /* copy the input stream to the output stream, quoting any
      characters that have special meaning in patterns. */
   int qc;
-  int quote = syntax_chars[PI_QUOTE];
+  int quote = (int)syntax_chars[PI_QUOTE];
   for ( ; ; ) {
   	qc = cis_getch(in);
   	if ( qc == EOF )
@@ -311,25 +315,51 @@ const char* safe_string(const unsigned char* s) {
   else return (char*)s;
 }
 
+static void
+describe_character(enum char_kinds chartype, const char* description ) {
+  int ch = (int)syntax_chars[(int)chartype];
+  if ( ch != '\0' )
+    fprintf(stderr, "\t'%c' %s\n", ch, description );
+}
+
 void pattern_help( FILE* f ) {
+  int i;
+  assert( f == stderr );
   fprintf(f, "Pattern syntax:\n\t<template>%c<replacement>\n",
 	syntax_chars[PI_SEP]);
   fprintf(f, "Text matching <template> is replaced by <replacement>.\n");
   fprintf(f, "Patterns are separated by a newline or '%c'.\n",
 	syntax_chars[PI_END]);
-  fprintf(f, "Special characters within a template:\n"
-	        "\t'%c' argument - match any number of characters\n"
-	        "\t'%c' argument - match any one character\n"
-	        "\t'%c' argument, recursively translated\n",
-	        syntax_chars[PI_ARG], syntax_chars[PI_1ARG],
-		syntax_chars[PI_RARG]);
-  fprintf(f, "Special characters within the replacement:\n"
-	        "\t%c<n> insert argument <n> where <n> is 1 through 9.\n",
-	        syntax_chars[PI_PUT]);
-  fprintf(f, "Within both template and replacement:\n"
-	        "\t'%c' is an escape character.\n"
-	        "\t'%c'  adds the Control key to the following character.\n",
-	        syntax_chars[PI_ESC], syntax_chars[PI_CTRL]);
+  fputs("Special characters within a template:\n", f);
+  describe_character( PI_ARG,  "argument - match any number of characters" );
+  describe_character( PI_1ARG, "argument - match any one character" );
+  describe_character( PI_RARG, "argument, recursively translated" );
+  describe_character( PI_BEGIN_REGEXP, "regular expression delimiter" );
+  fputs("Special characters within the replacement:\n", f );
+  describe_character( PI_PUT, "followed by digit, insert numbered argument" );
+  describe_character( PI_OP, "prefixes name of function to call" );
+  fputs("Within both template and replacement:\n", f);
+  describe_character( PI_ESC, "is an escape character." );
+  describe_character( PI_CTRL, "adds the Control key to the following character" );
+  fputs( "Following are all of the characters with special meaning:\n\t", f);
+#if 0
+  for ( i = PI_ARG ; i < PI_EOF ; i++ ) {
+    int ch = (int)syntax_chars[i];
+    if ( isprint(ch) && strchr((const char*)syntax_chars+1+i, ch)==NULL ) {
+      fputc( ch, f );
+      fputc( ' ', f );
+    }
+  }
+#else
+  for ( i = 0 ; i < NUMCHAR ; i++ ) {
+    int kind = char_table[i];
+    if ( kind > PI_CR && isgraph(i) ) {
+      fputc( i, f );
+      fputc( ' ', f );
+    }
+  }
+#endif
+  fputs( "\nSee the man page for further details.\n", f );
 }
 
 static unsigned char*
@@ -622,6 +652,9 @@ static struct action_ops {
     { NULL, 0, 0 }
   };
 
+/* number of arguments for each built-in function: */
+unsigned char fnnargs[OP_last_op] = { 0 };
+
 #if 0 /* not needed after all */
 static int
 end_delim(int c) {
@@ -801,13 +834,28 @@ charop: {
 	          *ap++ = PT_DOMAIN;
 		  *ap++ = (unsigned char)(domain + 1);
 		  if ( char_table[xc] == PI_BEGIN_ARG ) {
+		    int term_kind;
+		    int term_char;
 		    (void)cis_getch(s);
+		read_arg:
 		    ap = read_action( s, ap,  nargs, arg_keys );
-		    if ( char_table[cis_prevch(s)] != PI_END_ARG )
-		      input_error(s, EXS_SYNTAX,
+		    term_char = cis_prevch(s);
+		    term_kind = char_table[term_char];
+		    if ( term_kind != PI_END_ARG ) {
+		      if ( term_kind == PI_ARG_SEP ||
+			   term_char == syntax_chars[PI_ARG_SEP] ) {
+		        input_error(s, EXS_SYNTAX,
+		  	  "Arg separator \"%c\" in domain call \"%c%s%c\"\n",
+				  term_char, ch,
+		  		  domain_name(domain), xc);
+			*ap++ = term_char;
+			goto read_arg;
+		      }
+		      else input_error(s, EXS_SYNTAX,
 		  		  "Missing \"%c\" for \"%c%s%c\"\n",
 				  syntax_chars[PI_END_ARG], ch,
 		  		  domain_name(domain), xc);
+		    }
 		  }
 		  else input_error(s, EXS_SYNTAX,
 	        		   "Error: missing '%c' after \"%c%s\"\n",
@@ -828,6 +876,7 @@ charop: {
 	          *ap++ = PT_OP;
 		  apcode = ap;
 	          *ap++ = tp->code;
+	          fnnargs[tp->code] = tp->nargs;
 	          while ( xc == ' ' ) {
 	            (void)cis_getch(s);
 		    xc = cis_peek(s);
@@ -869,6 +918,7 @@ charop: {
 	                else if ( xtp->nargs == n &&
 		      		stricmp(tp->name,xtp->name) == 0 ) {
 		      	  *apcode = xtp->code;
+			  fnnargs[xtp->code] = n;
 			  break;
 		      	}
 	             }
@@ -996,7 +1046,6 @@ read_pattern ( CIStream s, int * domainpt, int default_domain,
   int nargs;
   unsigned char arg_keys[MAX_ARG_NUM+2];
   boolean domain_seen;
-  int arg1;
 
 top:
   if ( cis_prevch(s) == '\n' )
@@ -1154,7 +1203,7 @@ dispatch:
 	    if ( xk == PI_END_DOMAIN_ARG ||
 		 syntax_chars[PI_END_DOMAIN_ARG] == xc ||
 		 ( xk == PI_CHAR_OP &&
-		   cis_peek(s) == default_syntax_chars[PI_END_DOMAIN_ARG] &&
+		   cis_peek(s)==(int)default_syntax_chars[PI_END_DOMAIN_ARG] &&
 		   cis_getch(s) ) ) {
 	      int inverse;
 	      const char* dname;
@@ -1217,7 +1266,7 @@ dispatch:
 	    if ( syntax_chars[PI_END_REGEXP] == xc ||
 	    	 char_table[xc] == PI_END_REGEXP ||
 		 ( char_table[xc] == PI_CHAR_OP &&
-		   cis_peek(s) == default_syntax_chars[PI_END_REGEXP] &&
+		   cis_peek(s) == (int)default_syntax_chars[PI_END_REGEXP] &&
 		   cis_getch(s) ) ) {
 	        *xp = '\0';
 		if ( ! op_found )
@@ -1335,7 +1384,6 @@ dispatch:
   memcpy(pstring,pbuf,plen);
   astring = NULL;
   pt->next = NULL;
-  arg1 = arg_keys[1];
  {
   unsigned char* ap;
   ap = pbuf;
@@ -1346,18 +1394,14 @@ dispatch:
     ap = read_actions(s,ap,nargs,arg_keys);
   }
   else *ap++ = PT_END;
-  if ( nargs == 1 && char_table[arg1] == PI_1ARG ) {
-	/* optimize single "?" argument */
+  if ( pstring[0] == PT_MATCH_ONE && pstring[1] == PT_END ) {
+    /* optimize special case when template is just "?" */
     unsigned char* zp;
-    for ( zp = pstring ; *zp != PT_END ; zp++ )
-      if ( *zp == PT_MATCH_ONE ) {
-	*zp = PT_ONE_OPT;
-	for ( zp = pbuf ; *zp != PT_END ; zp++ )
-	  if ( zp[0] == PT_PUT_ARG && zp[1] == 1 ) {
-	    zp[0] = PT_ONE_OPT;
-	    strcpy((char*)zp+1,(char*)zp+2);
-	  }
-	break;
+    pstring[0] = PT_ONE_OPT;
+    for ( zp = pbuf ; *zp != PT_END ; zp++ )
+      if ( zp[0] == PT_PUT_ARG && zp[1] == 1 ) {
+      	zp[0] = PT_ONE_OPT;
+      	strcpy((char*)zp+1,(char*)zp+2);
       }
   }
   if ( pbuf[0] != PT_END ) {
@@ -1662,7 +1706,7 @@ int read_patterns ( CIStream s, const char* default_domain,
   int domain, top;
   CIStream save_input;
   save_input = input_stream;
-  if ( cis_pathname(s) != NULL )
+  if ( input_stream == NULL || cis_pathname(s) != NULL )
     input_stream = s;
   top = find_domain(default_domain);
   domain = top;
