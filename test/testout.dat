@@ -103,6 +103,10 @@ LDTSC
 (- (* a b) c)
 --------------------
 
+@MethBug 
+  x := self.north;
+  y := self.east;
+ end method;
 ..   ..
 Lion!
 Tiger!

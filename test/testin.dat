@@ -91,6 +91,10 @@ watch(this and wo)
 @Lisp: b-c
 @Lisp: (a*b)-c
 @Line
+@MethBug 
+  x := north;
+  y := self.east;
+ end method;
 ..@3Spaces..
 //  Lion
 //	Tiger

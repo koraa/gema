@@ -164,3 +164,10 @@ Is it $Q\?=Yes it is $Q.
 Is it *\?=No it is not *.
 Hit <i>\J$Q\J<i>=Hit $1[It]$2
 Swat <expr>\J$Q=Swat $1[It]
+
+method-body:self.<I>=$0
+method-body:<I2>\J<i>=self.$0
+method-body:<I>=$1
+method-body:?=?
+\@MethBug<s><method-body>end method=$0
+
