@@ -12,7 +12,10 @@
 
 /*
  * $Log$
- * Revision 1.11  2001/12/31 01:35:22  gray
+ * Revision 1.12  2003/11/02 00:03:56  gray
+ * Add trace printout of domain call.
+ *
+ * Revision 1.11  2001/12/31  01:35:22  gray
  * Flush stdout before invoking @shell command.
  *
  * Revision 1.10  2001/12/15  20:21:06  gray
@@ -399,9 +402,34 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	}
 	else /* optimized operand access */
 	  inbuf = function_operand( &as, args );
+#ifdef TRACE
+	if ( trace_switch ) {
+	  int n;
+	  fprintf( stderr, "%12ld,%2d ",
+		   cis_line(input_stream), cis_column(input_stream));
+	  for ( n = trace_indent ; n > 0 ; n-- )
+	    fputc(' ',stderr);
+	  if ( cis_is_file(inbuf) ) {
+	    const char* inpath = cis_pathname(inbuf);
+	    if ( inpath == NULL )
+	      inpath = "-";
+	    fprintf( stderr, "@%s{@read{%s}}\n",
+		     domains[domain]->name, inpath);
+	  }
+	  else 
+	    fprintf( stderr, "@%s{%.60s}\n",
+		     domains[domain]->name, cis_whole_string(inbuf));
+	  ++trace_indent;
+	}
+#endif
 	if ( !translate( inbuf, domains[domain], out, NULL ) &&
 	     cis_is_file(inbuf) && exit_status < EXS_FAIL )
 	  exit_status = EXS_FAIL;
+#ifdef TRACE
+	if ( trace_switch ) {
+	  --trace_indent;
+	}
+#endif
 	current_rule = save_rule;
 	cis_close(inbuf);
 	break;
