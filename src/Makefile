@@ -4,6 +4,7 @@
 #	use "make gcc" to build with the Gnu C compiler
 #	or "make acc" to build with the Solaris ANSI C compiler
 #	or "make lcc" to build with the Lucid C compiler.
+#	or "make cc" to use a compiler named "cc".
 #
 #  (An ANSI-C compiler is required.)
 
@@ -11,7 +12,9 @@
 
 INSTALLDIR = /usr/local
 
-all: gcc
+# The default build target runs a script to determine the appropriate options.
+default: 
+	./build
 
 gcc:
 	${MAKE} CC=gcc CCFLAGS="-ansi -Wall -O2 -DNDEBUG" gema
@@ -22,14 +25,17 @@ lcc:
 acc:
 	${MAKE} CC=acc CCFLAGS="-O -DNDEBUG" gema
 
+cc:
+	${MAKE} CC=cc CCFLAGS="-O -DNDEBUG" gema
+
 debug:
-	${MAKE} CC=lcc CCFLAGS="-g -Xa -wucpd" gema
+	${MAKE} CCFLAGS="-g" gema
 
 OBJS =  version.o gema.o reg-expr.o var.o util.o read.o match.o \
 	cstream.o action.o
 
-CC = lcc
-CCFLAGS = -XG -O -Xa
+CC = cc
+CCFLAGS = -O -DNDEBUG
 
 clean:
 	rm -f ${OBJS} gema 
