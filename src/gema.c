@@ -12,7 +12,10 @@
 
 /*
  * $Log$
- * Revision 1.10  1995/07/04 23:41:52  gray
+ * Revision 1.11  1995/08/07 03:21:25  gray
+ * Remove support for "/" options in MS-DOS because doesn't work right.
+ *
+ * Revision 1.10  1995/07/04  23:41:52  gray
  * Split `argv_rules' into 5 pieces to placate the MPW compiler.
  *
  * Revision 1.9 1995/06/12 02:59:42 gray
@@ -246,7 +249,9 @@ CI "\\N-trace\\n=@set-switch{trace;1}\n"
 CI "\\N-line\\n=@set-switch{line;1}\n"
 CI "\\N-match\\n=@set-switch{match;1}\n"
 #ifdef MSDOS
+#if 0 /* doesn't work because causes "\Z" action to be invoked. */
    "\\N\\/<L1>\\n=@ARGV{-$1\\n}\n"	/* allow "/" instead of "-" */
+#endif
 #else
 CI "\\N-n\\n=@set-switch{match;1}\n"	/* like for sed */
 CI "\\N-e\\n*\\n=@define{*}\n"		/* like for sed */
