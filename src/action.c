@@ -87,7 +87,8 @@ function_operand( const unsigned char** asp, CIStream* args ) {
       const char* pathname;
       CIStream istream;
       pathname = cis_whole_string(path);
-      if ( strcmp(cos_pathname(output_stream),pathname)==0 ) {
+      if ( strcmp(canonicalize_path(cos_pathname(output_stream)),
+    		  canonicalize_path(pathname))==0 ) {
 	/* Using same file for translation input and output --
 	   actually read the backup file instead. */
 	if ( current_backup != NULL )
@@ -471,9 +472,13 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
        }
        case OP_COL: {
 	 put_number(out, cis_column(input_stream));
+	 break;
        }
        case OP_HELP:
 	 usage();
+	 break;
+       case OP_VERSION:
+	 cos_puts(out, Version);
 	 break;
 
        case OP_DATE:
@@ -701,6 +706,7 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	    free(wrap_indent);
 	  wrap_indent = str_dup_len( cis_whole_string(inbuf),
 				     cis_length(inbuf) );
+	  break;
 	}
 
 	case OP_RIGHT:
@@ -901,10 +907,8 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
   	    inbuf = function_operand( &as, args );
 	  else {
 	    const unsigned char* start = as;
-	    for ( ; n > 0 ; n-- ) {
-	      as = start;
-	      as = do_action( as, args, out );
-	    }
+	    for ( ; n > 0 ; n-- )
+	      as = do_action( start, args, out );
 	  }
 	  break;
 	}
