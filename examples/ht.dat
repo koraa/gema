@@ -34,7 +34,7 @@ quot:\<=@fail
 "\L#"=``#''
 
 !\<BR\>=\\\\
-\<BR\>=\\linebreak\[4\]
+\<BR\>=\\newline 
 \<P\>\W=\N\n
 \N\W\n=
 
@@ -90,19 +90,37 @@ trim:\A\S=;\S\Z=;
 just-date:<L> <L> <D> <D>\:<D>\:<D> <D>=$2 $3\, $7@end
 just-date:\n=;
 
-\<TT\><litq>\</TT\>=\{\\tt $1\}
 \<EM\>#\</EM\>=\{\\em #\}
 \<I\>#\</I\>=\{\\it #\}
 \<B\>#\</B\>=\{\\bf #\}
-\<CODE\><litq>\</CODE\>=\{\\tt $1\}
-\<SAMP\><litq>\</SAMP\>=\{\\tt $1\}
-\<KBD\>#\</KBD\>=\{\\tt #\}
 \<STRONG\>#\</STRONG\>=\{\\bf #\}
 \<VAR\>#\</VAR\>=\{\\em #\}
+
+\<TT\><vlit>\</TT\>=@verb{$1}
+\<CODE\><vlit>\</CODE\>=@verb{$1}
+\<SAMP\><vlit>\</SAMP\>=@verb{$1}
+\<KBD\><vlit>\</KBD\>=@verb{$1}
+
+\<TT\><litq>\</TT\>=@ttout{$1}
+\<CODE\><litq>\</CODE\>=@ttout{$1}
+\<SAMP\><litq>\</SAMP\>=@ttout{$1}
+\<KBD\><litq>\</KBD\>=@ttout{$1}
+
+vlit:\&lt\;=\<;\&gt\;=\>;\&amp\;=\&;\&quot\;=\"
+vlit:\<=@fail;\&=fail
 
 litq:\"=\"
 litq::
 
+ttout:<ttarg>=\{\\tt $1\}
+ttarg:@/[{}\\=%#$]+@/=\\verb\|$1\|
+ttarg:_=\\_
+
+verb:\A\Z=;
+verb:\A<A>\Z=\{\\tt $1\}
+verb:*=@verbout{\|\/\'\,\+\!\:\~\=\@\\\0*}
+verbout:?*\0*$1*=@verbout{*\0*$1*}
+verbout:?*\0*=\\verb$1$3$1
 
 \<<I>\>#\</$1\>=@err{"@file" line @line\: unrecognized\: \<$1\>\n}$0
 \<<I>\>=@err{"@file" line @line\: unmatched\: \<$1\>\n}$0
