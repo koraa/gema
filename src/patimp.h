@@ -1,6 +1,8 @@
 
 /* pattern implementation internal declarations */
 
+/* $Id$ */
+
 #include "pattern.h"
 
 /* special characters used internally: */
@@ -150,8 +152,8 @@ enum Operators {
 boolean is_operator(int x);
 boolean isident( int ch ); /* is the character an identifier constituent? */
 
-#define MAX_ARG_LEN 4096
-#define MAX_ARG_NUM 9
+/* maximum number of arguments in a template: */
+#define MAX_ARG_NUM 20
 
 struct pattern_struct {
   const unsigned char* pattern;
@@ -197,6 +199,8 @@ do_action( const unsigned char* action, CIStream* args, COStream out);
 extern Pattern current_rule;
 
 extern int arg_char; /* value of optimized "?" argument */
+
+extern unsigned char fnnargs[OP_last_op];
 
 void quoted_copy( CIStream in, COStream out );
 
