@@ -548,6 +548,10 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	 put_number(out, cis_column(input_stream));
 	 break;
        }
+       case OP_OUTCOL: {
+	 put_number(out, cos_column(output_stream));
+	 break;
+       }
        case OP_HELP:
 	 usage();
 	 break;
@@ -914,13 +918,25 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	  exit((int)(exit_status > EXS_FAIL ? exit_status : EXS_FAIL ));
 	  break;
 
+	case OP_GET_SWITCH:
 	case OP_SET_SWITCH: {
 	  const char* name;
+	  int* valpt;
 	  inbuf = function_operand( &as, args );
 	  name = cis_whole_string(inbuf);
-	  if ( !set_switch( name, (int)numeric_operand( &as, args ) ) )
+	  valpt = find_switch(name);
+	  if ( valpt == NULL ) {
 	    input_error(input_stream, EXS_UNDEF,
 	  		"Undefined switch name \"%.99s\"\n", name );
+	    if ( ac == OP_SET_SWITCH )
+	      (void)numeric_operand( &as, args );
+	  }
+	  else {
+	    if ( ac == OP_SET_SWITCH )
+	      *valpt = (int)numeric_operand( &as, args );
+	    else
+	      put_number( out, *valpt );
+	  }
 	  break;
 	}
 
