@@ -1,4 +1,6 @@
 !   Convert man page to HTML
+!
+! $Id$
 
 \B=\<\!-- "@outpath" generated @just-date{@datime} by "@getenv{USER;}" --\>\n\
    \<\!-- Converted from "@inpath" dated @just-date{@file-time} --\>\n
@@ -42,7 +44,7 @@ infont:<L>,<U>=@startfont{$1}@{$2}@endfont{${font}};=@end
 \\fI=@startfont{I}
 \\fB=@startfont{TT}
 \\fP=@endfont{@var{font;}}
-\\fR=@endfont{@var{font;}}
+\\fR=@repeat{5;@endfont{@var{font;}}}
 \\f1=@endfont{@var{font;}}
 \\f2=@startfont{I}
 \\f3=@startfont{TT}
