@@ -89,6 +89,7 @@ get_goal_char( const unsigned char* ps ) {
 #define MatchSwallow 1
 #define MatchLine 2
 #define MatchNoCase 4
+#define MatchArgDelim 8
 
 struct mark_struct {
   CIStream in;
@@ -104,6 +105,45 @@ getch_marked(struct mark_struct* ps) {
   }
   return cis_getch(ps->in);
 }
+
+#ifdef TRACE
+/* Compile with -DTRACE to enable use of the -trace option */
+boolean trace_switch = FALSE;
+
+#include <stdarg.h>
+static int trace_indent = 0;
+
+typedef enum { FAIL, OK } trace_kinds;
+
+static void
+trace( struct mark_struct * mp, trace_kinds kind, const char* format, ... ) {
+  va_list args;
+  va_start(args,format);
+  if ( trace_switch ) {
+    int n;
+    if ( mp->in != input_stream )
+      fprintf( stderr, "%16s", "");
+    else {
+      if ( mp->marked )
+	fprintf( stderr, "%4d,%2d:", mp->start.line, mp->start.column );
+      else fprintf( stderr, "%8s","");
+      fprintf( stderr, "%4d,%2d ", cis_line(mp->in), cis_column(mp->in));
+    }
+    for ( n = trace_indent ; n > 0 ; n-- )
+      fputc(' ',stderr);
+    if ( kind == FAIL ) fprintf( stderr, "Failed ");
+    vfprintf(stderr, format, args);
+    if ( kind == FAIL ) fprintf( stderr, " at '%c'\n", cis_peek(mp->in) );
+  }
+  va_end(args);
+}
+
+#define TRACE_FAILURE(string) if(trace_switch) trace(&marker,FAIL,string)
+
+#else
+#define trace_switch FALSE
+#define TRACE_FAILURE(string)
+#endif
 
 boolean
 try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
@@ -129,14 +169,17 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
       COStream outbuf;
       int limit;
       const unsigned char* use_goal;
+      int new_options;
       if ( next_arg == NULL ) /* matching only up to first argument */
 	goto success;
       assert( next_arg[0] == NULL );
       next_arg[1] = NULL;
       outbuf = make_buffer_output_stream();
       use_goal = NULL;
-      if ( ps[1] == PT_END )
+      if ( ps[1] == PT_END ) {
 	use_goal = goal;
+	new_options = (options&MatchNoCase) | MatchArgDelim;
+      }
       for ( limit = MAX_ARG_LEN ; limit > 0 ; limit-- ) {
       	ic = cis_peek(in);
 	if ( ic == EOF ) {
@@ -147,8 +190,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  else break;
 	}
 	if ( use_goal != NULL ) {
-	  if ( try_pattern( in, use_goal, NULL, NULL,
-			    options&MatchNoCase, goal ) &&
+	  if ( try_pattern( in, use_goal, NULL, NULL, new_options, goal ) &&
 		use_goal[0] != PT_END ) {
 	    next_arg[0] = convert_output_to_input(outbuf);
 	    goto success;
@@ -156,7 +198,8 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	}
 	else
 	if ( try_pattern( in, ps+1, next_arg+1, all_args,
-			  (local_options | MatchSwallow), goal ) &&
+			  (local_options | (MatchArgDelim|MatchSwallow)),
+			  goal ) &&
 	     ps[1] != PT_END ) {
 	  next_arg[0] = convert_output_to_input(outbuf);
 	  goto success;
@@ -214,12 +257,26 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	cis_mark(in,&marker.start);
 	marker.marked = TRUE;
       }
+#ifdef TRACE
+      ++trace_indent;
+#endif
       if ( translate ( in, domains[domain], outbuf,
 		       ( ps[1]==PT_END? goal : ps+1 ) ) ) {
 	*next_arg++ = convert_output_to_input( outbuf );
 	*next_arg = NULL;
+#ifdef TRACE
+	if ( trace_switch )
+	  trace ( &marker, OK, "Matched <%s> as \"%.60s\"\n",
+		   domains[domain]->name, cis_whole_string(next_arg[-1]) );
+	--trace_indent;
+#endif
 	}
       else {
+#ifdef TRACE
+	if ( trace_switch )
+	  trace( &marker, FAIL, "<%s>", domains[domain]->name );
+	--trace_indent;
+#endif
 	cos_close(outbuf);
 	goto failure;
       }
@@ -321,7 +378,8 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  cos_putch(outbuf, getch_marked(&marker));
 	} /* end ok */
 	else if ( ignore_whitespace && isspace(ic) && num_found == 0 &&
-		  ( kind=='Y' || kind=='C' || !isident(cis_prevch(in)) ) ) {
+		  ( kind=='Y' || kind=='C' || !isident(cis_prevch(in)) ) &&
+		  ( marker.marked || !(local_options & MatchArgDelim) ) ) {
 	  (void)getch_marked(&marker);
 	  continue;
 	}
@@ -331,6 +389,11 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	     num_found == 0		/* no valid characters found */
 	   ) && !optional )
        {
+#ifdef TRACE
+	if ( trace_switch )
+	  trace( &marker, FAIL, "<%s%c>", (inverse? "-" : ""),
+			 (optional? tolower(kind) : kind) );
+#endif
 	cos_close(outbuf);
       	goto failure;
       }
@@ -346,8 +409,10 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
     case PT_REGEXP: {
        CIStream value;
        value = match_regexp ( in, *++ps -1 );
-       if ( value == NULL )
+       if ( value == NULL ) {
+	 TRACE_FAILURE( "regular expression" );
 	 goto failure;
+       }
        *next_arg++ = value;
        *next_arg = NULL;
        break;
@@ -389,7 +454,10 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	if ( isspace( cis_prevch(in) ) &&
 	     ( marker.marked || next_arg == all_args ) )
 	  break;
-	else goto failure;
+	else {
+	  TRACE_FAILURE( "\\S" );
+	  goto failure;
+	}
       }
       /* and fall through for optional additional space */
     case PT_SKIP_WHITE_SPACE: {  /* optional white space */
@@ -413,6 +481,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	break;
       if ( !isalnum(cis_peek(in)) )
 	break;
+      TRACE_FAILURE( "\\X" );
       goto failure;
     }
     case PT_ID_DELIM: { /* identifier delimiter */
@@ -420,6 +489,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	break;
       if ( !isident(cis_peek(in)) )
 	break;
+      TRACE_FAILURE( "\\I" );
       goto failure;
     }
 #if 0 	/* changed my mind */
@@ -449,6 +519,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  break;
 	}
       }
+      TRACE_FAILURE( "\\N" );
       goto failure;
     }
 
@@ -533,10 +604,16 @@ again:
       if ( ic != pc &&
 	   ( !(local_options & MatchNoCase) || toupper(ic) != toupper(pc) ) ){
 	if ( ignore_whitespace && isspace(ic) &&
-	     ( !isident(pc) || !isident(cis_prevch(in)) ) ) {
+	     ( !isident(pc) || !isident(cis_prevch(in)) ) &&
+	     ( marker.marked || !(local_options & MatchArgDelim) ) ) {
 	  (void)getch_marked(&marker);
 	  goto again;
 	}
+#ifdef TRACE
+	if ( trace_switch &&
+	     (local_options & (MatchArgDelim|MatchSwallow))==MatchSwallow )
+	  trace( &marker, FAIL, "'%c'", pc);
+#endif
 	goto failure;
       }
       else (void)getch_marked(&marker);
