@@ -223,8 +223,10 @@ static int
 
 static CHAR bittab[BITBLK];	/* bit table for SET */
 
-#define ISINSET(bittab,c) ((bittab)[((c) & BLKIND)>>3] & (1<<((c) & BITIND)))
-#define CHSET(bittab,c)    (bittab)[((c) & BLKIND)>>3] |= 1<<((c) & BITIND)
+#define ISINSET(bittab,c) \
+ ((bittab)[((((unsigned int)(c)) & BLKIND) >> 3)] & (CHAR) (1<<((c) & BITIND)))
+#define CHSET(bittab,c) \
+ (bittab)[((((unsigned int)(c)) & BLKIND) >> 3)] |= (CHAR) (1<<((c) & BITIND))
 
 static void chset(c)  CHAR c; { CHSET(bittab,c); }
 
