@@ -27,3 +27,21 @@ ct:=@fail
 Parenthesize *\n=@parenthesize{*}\n
 parenthesize:*\&*=($0)
 parenthesize:\A\W<I>\W\Z=$1
+
+@define{dom2\:\:dom1}
+@define{dom1\:aaa\=bbb\;dom2\:xxx\=yyy}
+
+<expression>:(#)=$0@end
+<expression>:<postfix-expression>=$1@end;=@fail
+<postfix-expression>:<I>\W<optpost>=@putpost{$2\0$1}@end
+<postfix-expression>:=@fail
+optpost:[<expression>]=$0@end
+!optpost:(<argument-expression-list>)=$0@end
+optpost:.<I>=.$1@end
+optpost:-\><I>=.$1@end
+optpost:++=++@end;--=+-@end
+optpost:=@end
+putpost:+?\0*= %prog1($2, $2 := $2 $1 1)
+putpost:*\0*= $2$1
+
+Convert(<expression>)=\N$1\n

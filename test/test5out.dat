@@ -1,6 +1,5 @@
 // Header
 Enumeration type foo_status
-FooBar
 ** hello **
 Foo
 Foo-Bar
@@ -11,3 +10,5 @@ int self
 DataType self
 item
 (alpha & beta)
+s.x
+a[i]

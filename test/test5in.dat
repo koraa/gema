@@ -6,7 +6,7 @@ extern enum Foo_Status
   { Foo_Complete, Foo_Continue,Foo_Exited, Foo_Failed }
   foo_status;
 
-foo_bar
+/* foo_bar */
 alfoo_bar
 foo_bart
 
@@ -23,6 +23,9 @@ fixthis(DataType This)
 Parenthesize item
 Parenthesize alpha & beta
 
-
+Convert(s.x)
+Convert(a[i])
+DHX(Foo)
+ODH(Foo)
 
 
