@@ -17,6 +17,7 @@
 #include "main.h"  /* for EXS_SYNTAX */
 
 boolean line_mode = FALSE;
+boolean token_mode = FALSE;
 
 boolean discard_unmatched = FALSE;
 
@@ -190,10 +191,11 @@ char* trim_name( unsigned char* x ) {
   unsigned char* s;
   unsigned char* end;
   s = x;
-  while ( isspace(s[0]) || s[0] == PT_SPACE )
+  while ( isspace(s[0]) || s[0] == PT_SPACE || s[0] == PT_ID_DELIM )
     s++;
   end = s + strlen((const char*)s);
-  while ( end > s && ( isspace(end[-1]) || end[-1] == PT_SPACE ) )
+  while ( end > s &&
+	( isspace(end[-1]) || end[-1] == PT_SPACE || end[-1] == PT_ID_DELIM ) )
     end--;
   end[0] = '\0';
   return (char*)s;
@@ -419,6 +421,7 @@ escaped_char( int ch, unsigned char* bp, CIStream s ) {
 	case 'Z': pc = PTX_FINAL; goto aux;
 	case 'P': pc = PTX_POSITION; goto aux;
 	case 'G': pc = PTX_NO_GOAL; goto aux;
+	case 'J': pc = PTX_JOIN; goto aux;
 
 	/* quoting literal character */
 	default:
@@ -707,7 +710,7 @@ read_action( CIStream s, unsigned char* bp, int nargs,
   enum char_kinds kind;
     for ( ap = bp ; ; ) {
       ch = cis_getch(s);
-      if ( ch == EOF ) 
+      if ( ch == EOF )
 	kind = PI_EOF;
       else kind = (enum char_kinds) char_table[ch];
 dispatch:
@@ -880,6 +883,8 @@ charop: {
 	  (void)cis_getch(s);
 	if ( ap > bp && isident(ap[-1]) && isident(cis_peek(s)) )
 	  pc = ' ';
+	else if ( token_mode )
+	  pc = PT_ID_DELIM;
 	else continue;
 	break;
       case PI_SPACE:
@@ -975,6 +980,8 @@ read_pattern ( CIStream s, int * domainpt, int default_domain,
   int pc;  /* pattern character */
   unsigned char pbuf [BUFSIZE];
   unsigned char* bp;
+  unsigned char* start_bp;
+  unsigned char* prev_bp;
   size_t plen;
   Pattern pt;
   unsigned char* astring;
@@ -989,6 +996,7 @@ top:
     *domainpt = default_domain;
   nargs = 0;
   bp = pbuf;
+  start_bp = (unsigned char*)"\0";
   domain_seen = FALSE;
   if ( cis_peek(s) == '\f' )
     (void)cis_getch(s);
@@ -1000,6 +1008,8 @@ top:
 
   /* read template to match */
   for ( ; ; ) {
+    prev_bp = start_bp;
+    start_bp = bp;
     ch = cis_getch(s);
     kind = ch == EOF? PI_EOF : (enum char_kinds)char_table[ch];
 dispatch:
@@ -1236,21 +1246,23 @@ dispatch:
 
     case PI_QUOTE:
     case PI_ESC: {
-       unsigned char* sp;
-       sp = bp;
        bp = escaped_char(ch,bp,s);
-       if ( sp > pbuf )
-	 if ( *sp == PT_AUX &&
-    	      ( sp[1] == PTX_INIT || sp[1] == PTX_BEGIN_FILE ) )
-	   input_error(s, EXS_SYNTAX,
+       if ( start_bp > pbuf )
+	 if ( *start_bp == PT_AUX ) {
+    	   if ( start_bp[1] == PTX_INIT || start_bp[1] == PTX_BEGIN_FILE )
+	     input_error(s, EXS_SYNTAX,
     		"\"%c%c\" only meaningful at beginning of template.\n",
     		ch, cis_prevch(s) );
+	   if ( start_bp[1] == PTX_JOIN && *prev_bp == PT_ID_DELIM ) {
+	     bp = prev_bp;
+	   }
+	 }
        continue;
     }
     case PI_IGNORED_SPACE:
       	while ( char_table[cis_peek(s)] == PI_IGNORED_SPACE )
 	  (void)cis_getch(s);
-	if ( !( bp > pbuf && isident(bp[-1]) && isident(cis_peek(s)) ) )
+	if ( !( isident(*prev_bp) && isident(cis_peek(s)) ) )
 	  continue;
 	/* else fall-through */
     case PI_SPACE:
@@ -1270,6 +1282,19 @@ dispatch:
     case PI_END_ARG:   /* not special in this context */
     case PI_ARG_SEP:   /* not special in this context */
     case PI_LITERAL:
+       if ( token_mode && isident(ch) ) {
+       	 if ( is_operator(*prev_bp) && *prev_bp != PT_ID_DELIM ) {
+	   if ( prev_bp[0] == PT_AUX && prev_bp[1] == PTX_JOIN )
+	     bp = prev_bp;
+	   else *bp++ = PT_ID_DELIM;
+	   start_bp = bp;
+    	   }
+	if ( char_table[cis_peek(s)] != PI_LITERAL ) {
+	  *bp++ = ch;
+	  pc = PT_ID_DELIM;
+	  break;
+	}
+       } /* end token_mode */
        pc = ch;
        break;
     case PI_IGNORE:
