@@ -11,9 +11,13 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.13  1995/08/13 05:33:35  gray
-/* Fix regression on "*" at end of template.
+/* Revision 1.14  1995/08/20 05:38:21  gray
+/* Fix handling of empty optional argument in argument terminator.
+/* Add trace messages for matched recognizer and failed "*".
 /*
+ * Revision 1.13  1995/08/13  05:33:35  gray
+ * Fix regression on "*" at end of template.
+ *
  * Revision 1.12  1995/08/07  03:22:39  gray
  * Fix to not match on "\Z" after "@end" (regression in previous changes).
  *
@@ -270,8 +274,10 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  next_arg[0] = convert_output_to_input(outbuf);
 	  goto success;
 	}
-	if ( ic == '\n' && (local_options & MatchLine) )
+	if ( ic == '\n' && (local_options & MatchLine) ) {
+	  TRACE_FAILURE( "*" );
 	  goto failed_any;
+	}
 	else {
 	  int xc;
 	  xc = getch_marked(&marker);
@@ -470,16 +476,24 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
        {
 #ifdef TRACE
 	if ( trace_switch )
-	  trace( &marker, FAIL, "<%s%c>", (inverse? "-" : ""),
-			 (optional? tolower(kind) : kind) );
+	  trace( &marker, FAIL, "<%s%c>", (inverse? "-" : ""), kind );
 #endif
 	cos_close(outbuf);
       	goto failure;
       }
       else {
-	if ( next_arg != NULL ) {
+	if ( next_arg == NULL )
+	  /* matching only up to first argument; here for empty optional arg */
+	  goto success;
+	else {
 	  *next_arg++ = convert_output_to_input(outbuf);
 	  *next_arg = NULL;
+#ifdef TRACE
+	  if ( trace_switch )
+	    trace ( &marker, OK, "Matched <%s%c> as \"%.60s\"\n",
+		    (inverse? "-" : ""), (optional? tolower(kind) : kind),
+		    cis_whole_string(next_arg[-1]) );
+#endif
 	}
 	break;
       }
