@@ -7,21 +7,29 @@
      examples   sample applications, including LaTeX to HTML conversion.
      test       script and data for verification of build
 
-  The program is designed to work on either Unix or MS-DOS. It may need
-  some modification for use on other systems, particular in regard to
-  pathname syntax; see the places where ``#ifdef MSDOS'' is used.
+  This description applies to version 1.2.
+
+  The program currently works on Unix, MS-DOS, Windows NT, and
+  Macintosh. It may need some modification for use on other systems,
+  particular in regard to pathname syntax and accessing file attributes;
+  see the places where ``#ifdef unix'', ``#ifdef MSDOS'', and ``#ifdef
+  MACOS'' are used.
 
   To build the program, you just need to use an ANSI C compiler to compile
-  all of the ".c" files and link the resulting object files together.
-  An example "Makefile" for Unix is provided.  Normally you should compile
-  with optimization and with the option "-DNDEBUG".  So far, this has been
-  successfully built with compilers from the following vendors:  Microsoft,
-  Borland, Sun, Gnu, and Lucid.
+  all of the ".c" files and link the resulting object files together.  An
+  example "Makefile" for Unix is provided, and a "gema.mak" file from
+  Microsoft Quick C.  Normally you should compile with optimization and
+  with the option "-DNDEBUG" to omit internal debugging checks.  You may
+  also want to use "-DTRACE" to enable the experimental diagnostic trace
+  option.  For MS-DOS, you'll need to specify a stack size somewhere in the
+  range of 4000 to 6000 bytes; I'm currently using 5600. So far, this has
+  been successfully built with the following brands of compilers:
+  Microsoft, Borland, Sun, Gnu, Lucid, and MPW.
 
   After building the program, you can verify that it works correctly by
   running the test script in the "test" directory -- "test" for Unix, or
-  "test.bat" for MS-DOS.  The test passes if no file comparison differences
-  are reported.
+  "test.bat" for MS-DOS or Windows.  The test passes if no file comparison
+  differences are reported.
 
   The "examples" directory includes the following non-trivial pattern files
   for document conversion:
@@ -41,6 +49,13 @@
   additional features that you need.  The conversion provides a clear
   warning about what is not recognized, and extending the patterns is easy.
 
+  Also in the "examples" directory is file "c2dyl.dat", which reads C
+  source files and does a crude preliminary syntax conversion to the new
+  Dylan programming language.  Even if you aren't interested in Dylan, this
+  file serves as an example of how recursive pattern matching can be used
+  to parse infix expressions; note how the rules look very similar to a BNF
+  description of the expression syntax.
+
 
   "gema" is not a commercial product; it has been donated to the public
   domain in order to maximize its usefulness.  Let me know if you find any
@@ -56,4 +71,4 @@
 				850 Roble Ave., Apt. G
 				Menlo Park, CA  94025
 
-				March 21, 1995
+				August 19, 1995
