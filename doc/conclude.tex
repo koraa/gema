@@ -60,6 +60,25 @@ writing to standard output is implemented by the {\tt ARGV} rules.
 (The \verb/-prim/ option is the only one that is hard-coded instead of
 being implemented by patterns.)
 
+\pagebreak[3]
+\section{Exit codes}
+When the program terminates, it will return one of the following status
+codes to the operating system (unless overridden by the use of function
+\verb/@exit-status/): 
+\begin{description}
+\item[0]  nothing wrong 
+\item[2]  failed match signaled by \verb/@fail/ or \verb/@abort/ 
+\item[3]  undefined command line argument 
+\item[4]  syntax error in pattern definitions 
+\item[5]  use of undefined name during translation
+	   (domain, variable, switch, parameter, syntax type, or locale) 
+\item[6]  invalid numeric operand 
+\item[7]  can't execute shell command for \verb/@shell/ function
+\item[8]  I/O error on input file 
+\item[9]  I/O error on output file 
+\item[10] out of memory 
+\end{description}
+
 \section{Status and Future development}
 
 This program is now at the stage where in an ideal world it should be
