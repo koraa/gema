@@ -60,13 +60,14 @@ writing to standard output is implemented by the {\tt ARGV} rules.
 (The \verb/-prim/ option is the only one that is hard-coded instead of
 being implemented by patterns.)
 
-\pagebreak[3]
+\pagebreak[4]
 \section{Exit codes}
 When the program terminates, it will return one of the following status
 codes to the operating system (unless overridden by the use of function
 \verb/@exit-status/): 
 \begin{description}
 \item[0]  nothing wrong 
+\item[1]  (reserved for user via \verb/@exit-status{1}/)
 \item[2]  failed match signaled by \verb/@fail/ or \verb/@abort/ 
 \item[3]  undefined command line argument 
 \item[4]  syntax error in pattern definitions 
@@ -79,6 +80,7 @@ codes to the operating system (unless overridden by the use of function
 \item[10] out of memory 
 \end{description}
 
+\pagebreak[4]
 \section{Status and Future development}
 
 This program is now at the stage where in an ideal world it should be
@@ -109,18 +111,15 @@ since it it easy to mistakenly neglect to quote a colon.
 file -- e.g. to write each chapter of a document to a separate file
 even though the input might be a single file.
 \item A function to construct a unique pathname for a temporary file.
-\item Separate pre-defined recognizers for lower case and upper case letters.
-\item A notation for quoting a long section of
+\item A default notation for quoting a long section of
 literal text, in addition to using the backslash for quoting individual
 characters.
-\item A function to return the pathname fo the current directory.
+\item A function to return the pathname of the current directory.
 \item Record the file and line that each rule came from, to be used in
 run-time error messages.
-\item Provide a trace mode to list what
-templates are and are not matched as an aid for debugging pattern files.
+\item Improved trace mode as an aid for debugging pattern files.
 \item A template operator for specifying an action to be taken after all
 input files have been processed.
-\item A ``sleep'' function.
 \end{itemize}
 
 \section{Acknowledgments}
@@ -140,3 +139,5 @@ deliberate copying.  I did copy the \verb/$0/ notation and adopt the term
 This program was designed and coded by myself, David N. Gray, except for the
 regular expression processor, which utilizes public domain code written
 by Ozan S. Yigit and updated by Craig Durland and Harlan Sexton.
+David A. Mundie\footnote{\tt mundie@telerama.lm.com} supplied modifications
+to enable use on the Macintosh, and offered some helpful comments.
