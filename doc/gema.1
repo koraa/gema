@@ -1,6 +1,6 @@
 .\" @(#)gema.1
 .\" $Id$
-.TH GEMA 1 "13 Mar 1995" " " " "
+.TH GEMA 1 "20 Aug 1995" "version 1.2" " "
 .SH NAME
 gema \- general purpose macro processor
 .SH SYNOPSIS
@@ -16,7 +16,7 @@ Where \fIoptions\fP is:
 .br
 \fB\-f\fP \fIpattern_file\fP | [\fB\-p\fP] '\fIpatterns\fP' |
 .BR \-b " | " \-i " | " \-k " | "
-.BR \-line " | " \-match " | "
+.BR \-line " | " \-match " | "  \-trace " | "
 .BR \-t " | " \-w " | "
 \fB\-idchars \fP\fIcharset\fP |
 \fB\-filechars \fP\fIcharset\fP |
@@ -62,7 +62,8 @@ the program actually reads from the backup file.
 With the
 .B \-out
 option, it will write to the designated file, concatenating the results
-of reading from any number of input files.  With the
+of reading from any number of input files, which may be specified by wild
+cards.  With the
 .B \-odir
 option, it reads any number of input files, creating a corresponding
 output file for each in the designated output directory, with the output
@@ -393,6 +394,12 @@ number of input file names (without
 .BR \-in )
 which will be read in sequence, with the
 concatenated result going to the single output file.
+For example, a command such as the following can be used to do a 
+.BR grep -like
+search of a group of files:
+.br
+\ \ \fBgema -match -p 'Copyright *\\n=@file\\: $0' -out - *.c\fP
+.br
 .TP
 .BI \-odir " directory"
 Specifies the output directory.  For each input file that follows, a
@@ -430,7 +437,8 @@ so with
 .B \-b
 Binary.  With this option, all input and output files are opened in
 binary mode instead of text mode.  This makes no difference on most Unix
-systems, but it changes the meaning of the new line character on MS-DOS.
+systems, but on MS-DOS it changes the meaning of the new line character and
+doesn't treat Control-Z as the end of the file.
 .TP
 .B \-k
 Keep going.  With this option, the program will try to continue
@@ -545,6 +553,18 @@ Display brief usage message on the standard error output.
 .TP
 .B \-version
 Display program version identification on the standard error output.
+.TP
+.B \-trace
+If the program was compiled with
+.BR \-DTRACE,
+then this option can be used to enable a report of template matches
+and failures to be written to the error output.  This may be helpful for
+diagnosing obscure cases of unexpected results, but this is a crude
+experimental feature, so don't expect too much.
+Each line describes one event, possibly showing the line and column number
+at the beginning of the current template, the line and column of the
+current position, and a description of the event, indented for recursive
+arguments. 
 .RE
 .LP
 .SH "PATTERNS REFERENCE SUMMARY"
@@ -610,7 +630,7 @@ function.
 separates domain name from rule
 .TP
 .BI < name >
-recursive argument, translated according the the named domain,
+recursive argument, translated according to the named domain,
 or pre-defined recognizer argument.  (template only)
 .TP
 .BI / regexp /
@@ -756,8 +776,14 @@ Graphic characters, i.e. any non-space printable character
 .B <I>
 Identifier
 .TP
+.B <J>
+lower case letters
+.TP
+.B <K>
+upper case letters
+.TP
 .B <L>
-Letters
+Letters (either upper or lower case)
 .TP
 .B <N>
 Number, i.e. digits with optional sign and decimal point
@@ -887,6 +913,9 @@ Write the argument value to the error output stream. No return value.
 .BI @exit-status{ number }
 Specify exit code to return when the program terminates.  No return value.
 .TP
+.BI @expand-wild{ path }
+Expand wild card pathname on MS-DOS.
+.TP
 .B @fail{}
 Signal translation failure; causes failed match of recursive argument.
 .TP
@@ -910,6 +939,10 @@ Right-justify the value on top of the background string.
 .BI @getenv{ name ; default }
 Return the value of an environment variable.  Returns the optional second
 argument if the environment variable is not defined.
+.TP
+.BI @get-switch{ name }
+Return value of switch (see
+.BR @set-switch )
 .TP
 .BI @incr{ var }
 Increments the value of a variable.  No value returned.
@@ -943,7 +976,7 @@ suffix from the third argument, if not empty.
 Returns the result of multiplying the two numbers.
 .TP
 .BI @mod{ number ; number }
-Returns the the first argument modulo the second.
+Returns the first argument modulo the second.
 .TP
 .BI @not{ number }
 Returns the bit-wise inverse of the argument.
@@ -956,6 +989,9 @@ of the two numbers.
 .BI @out{ string }
 Writes the argument value directly to the current output file.
 No return value.
+.TP
+.B @out-column{}
+Returns the current column number in the output file.
 .TP
 .BI @outpath{}
 Returns the pathname of the output file.
@@ -990,6 +1026,9 @@ second argument.
 .TP
 .BI @read{ pathname }
 Return an input stream that reads the contents of the named file.
+Note that this just specifies where the input comes from; it is usually
+used as an argument to another function that specifies what to 
+do with the data.
 .TP
 .BI @relative-path{ pathname ; pathname }
 If the two pathnames have the same directory portion, return the second
@@ -1031,7 +1070,7 @@ No result value.
 Set one of the following options to 1 for true or 0 for false:
 "line" for line mode, "b" for binary mode, "k" to keep going after errors,
 "match" for match-only mode, "i" for case-insensitive mode,
-"w" for whitespace insensitive mode, or "t" for token mode.
+"w" for whitespace insensitive mode, "t" for token mode, or "trace".
 .TP
 .BI @set-syntax{ type ; charset }
 The characters in the second argument will have the same meaning as
@@ -1065,7 +1104,7 @@ characters indicated by the first argument and then taking the number of
 characters indicated by the second argument.
 .TP
 .BI @tab{ number }
-Output spaces until the output stream reaches the the designated column.
+Output spaces until the output stream reaches the designated column.
 .TP
 .BI @terminate{}
 End translation of a recursive argument, with success if any characters
@@ -1098,7 +1137,7 @@ Return the program version identification string.
 .TP
 .BI @wrap{ string }
 Output the string, after starting a new line if necessary
-according to the the parameters set by
+according to the parameters set by
 .BR @set-wrap .
 The default is 80 columns and no indentation.
 .TP
@@ -1108,6 +1147,15 @@ the file named by the first argument.  Subsequent calls to
 .B @write
 with the same pathname will append to the file, until a
 .BR @close .
+.LP
+.SH BUGS
+The implementation of the
+.B \-t
+and 
+.B \-w
+options is a little sloppy and may produce unexpected results requiring
+use of explicit \fB\eJ\fP, \fB\eI\fP, or \fB\eW\fP to work around in
+certain contexts.
 .LP
 .SH SEE ALSO
 The
