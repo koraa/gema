@@ -1,6 +1,6 @@
 .\" @(#)gema.1
 .\" $Id$
-.TH GEMA 1 "26 Feb 1995" " " " "
+.TH GEMA 1 "13 Mar 1995" " " " "
 .SH NAME
 gema \- general purpose macro processor
 .SH SYNOPSIS
@@ -143,7 +143,10 @@ Templates can also have
 different kinds of arguments supported.  The first kind of argument is
 the
 .I "wild card"
-characters "\fB*\fP", which matches any number of characters, and
+characters "\fB*\fP", which matches any number of characters (up to a
+limit that can be adjusted by the
+.B \-arglen
+option), and
 "\fB?\fP", which matches any one character.  For example, consider the C
 macro definition:
 .br
@@ -443,8 +446,11 @@ when you want to extract selected information (like with
 .BR grep )
 instead of doing a translation.
 This option applies only to the default domain.
-Another way to discard unmatched text is with the default rule:
-.QX ?=;
+Another way to discard otherwise unmatched text is with the default rule
+.QX ?=
+while the rule
+.QX ?=?
+can be used to explicitly copy.
 .TP
 .B \-i
 Case insensitive mode.  All letters in templates will be matched without
@@ -516,6 +522,11 @@ you could instead say:
 .br
  \ \ \ \fBgema -literal / '/usr/foo/<F>=/usr/bar/$1'\fP \fI...\fP
 .TP
+.BI \-arglen " number"
+Specify the maximum length of a
+.QX *
+argument.  The default is 4096.
+.TP
 .BI \-prim " pattern_file"
 Primitive mode (for advanced users only).
 Like the
@@ -528,6 +539,12 @@ designated pattern file must define
 .B ARGV
 domain rules sufficient to specify what to do with the remainder of the
 command line.
+.TP
+.B \-help
+Display brief usage message on the standard error output.
+.TP
+.B \-version
+Display program version identification on the standard error output.
 .RE
 .LP
 .SH "PATTERNS REFERENCE SUMMARY"
@@ -783,8 +800,10 @@ For functions
 without arguments, the argument delimiters
 .QX {}
 may be omitted if not needed to separate the name from the following
-character.  All arguments are evaluated, and all of the special
+character.  All arguments are evaluated, so all of the special
 characters available in actions apply within the arguments also.
+(In a few cases, arguments that are not used are skipped instead of
+evaluated, but arguments are never used literally.)
 Arguments shown as
 .I number
 or
@@ -826,8 +845,9 @@ Closes a file previously opened by
 .TP
 \fB@cmpi{\fP\fIstring\fP\fB;\fP\fIstring\fP\fB;\fP\fIless-value\fP\fB;\fP\fIequal-value\fP\fB;\fP\fIgreater-value\fP\fB}\fP
 Compare, case-insensitive.
-Return either the third, fourth, or fifth argument depending on whether the
-first argument is less than, equal to, or greater than the second.
+Return either the third, fourth, or fifth argument value depending on
+whether the first argument is less than, equal to, or greater than the
+second.  The two unused arguments are not evaluated.
 .TP
 \fB@cmpn{\fP\fInumber\fP\fB;\fP\fInumber\fP\fB;\fP\fIless-value\fP\fB;\fP\fIequal-value\fP\fB;\fP\fIgreater-value\fP\fB}\fP
 Compare numbers.
@@ -977,8 +997,9 @@ argument with the common directory removed; else return the whole second
 argument.
 .TP
 .BI @repeat{ number ; action }
-The second argument is repeated the number of times specified by the
-first argument.
+The second argument is executed the number of times specified by the
+first argument.  If the number is less than or equal to zero, the second
+argument is not evaluated at all.
 .TP
 .B @reset-syntax{}
 Re-initializes the syntax tables to undo the effects of
@@ -1014,8 +1035,9 @@ Set one of the following options to 1 for true or 0 for false:
 .TP
 .BI @set-syntax{ type ; charset }
 The characters in the second argument will have the same meaning as
-the special character in the first argument, or use one of the following
-type codes: "L" for literal, "I" for ignore, etc.  No result value.
+the corresponding special character(s) in the first argument, or use one
+of the alphabetic type codes: "L" for literal, "I" for ignore, etc.
+No result value.
 .TP
 .BI @set-wrap{ number ; string }
 For
@@ -1070,6 +1092,9 @@ return the optional second argument, if supplied, else report an error.
 has the same effect as
 .B $
 when the name is not a number.
+.TP
+.B @version{}
+Return the program version identification string.
 .TP
 .BI @wrap{ string }
 Output the string, after starting a new line if necessary
