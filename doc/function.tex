@@ -132,7 +132,7 @@ For example, ``\verb/@left{8;ab}/'' returns ``\verb/ab/'' followed by 6
 spaces, while ``\verb/@left{8;hippopotamus}/'' returns ``hippopotamus''
 with no spaces.  If you want long values to be truncated, you can 
 use: \newline
-\verb/  @left{/{\it length}\verb/;@substring{0;/{\it length};/{\it string}\verb/}}/
+\verb/  @left{/{\it length}\verb/;@substring{0;/{\it length}\verb/;/{\it string}\verb/}}/
 \newline or write
 something like ``\verb/@left{8;@cut8{/{\it arg}\verb/}}/'', accompanied
 by the rule:  ``\verb/cut8:<U8>=$1@end/''.
@@ -583,6 +583,10 @@ message for unexpected input:
   ?=@err{\NIllegal character "$1" in line @line, column @column.\n}
 \end{verbatim}
 
+\item[{\tt @out-column\ttlb\ttrb}]
+Returns the column number of the current position in the current output
+file.
+
 \item[{\tt @file-time\ttlb\ttrb}]
 Returns the date and time when the current input file was last modified.
 The information is presented as formatted by the C function
@@ -790,6 +794,8 @@ the only switch that takes a number rather than being just true or false.
 (However, this is only part of the ``\verb/-t/'' command line option,
 which is implemented by
 ``\verb/@set-switch{t;1}@set-switch{w;1}/''.)
+\item[\tt trace] -- write pattern match diagnostic messages to {\tt stderr}.
+  (Only recognized if the program was compiled with ``\verb/-DTRACE/''.)
 \item[\tt w] -- ignore whitespace in the input
 (This is only part of the ``\verb/-w/'' command line option, which is
 implemented by
@@ -797,6 +803,9 @@ implemented by
 \end{description}
 In each case, the switch corresponds to the command line option with the
 same name, and further explanation of the meaning can be found there.
+
+\item[{\tt @get-switch\ttlb}{\it name}{\tt \ttrb}]
+Returns the current value of the named switch.
 
 \item[{\tt @set-parm\ttlb}{\it name}{\tt ;}{\it value}{\tt \ttrb}]
 Sets the value of any of several options that have string values.
@@ -850,7 +859,15 @@ letters:
     \item[\tt L] -- literal.  For example, the command line option 
 	``\verb|-literal '/?^'|'' is implemented by:
 	``\verb|@set-syntax{L;\/\?\^}|''
-    \item[\tt Q] -- quote.  Causes the following character to be taken
+    \item[\tt M] -- quote until match.
+	Causes the following characters to be taken literally until a
+	second occurrence of the character is found.  For the sake of
+	compatibility with earlier versions, there are currently no
+	characters that have this class by default. 
+	For example, ``\verb/@set-syntax{M;\'}/'' causes all characters
+	between matching apostrophes to be taken literally (even backslash).
+    \item[\tt Q] -- quote one character.  
+	Causes the following character to be taken
 	literally.  This is half of what the backslash does in the
 	default syntax.
     \item[\tt S] -- ignored space.  Characters with this class will be
