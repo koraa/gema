@@ -1,3 +1,4 @@
+/* $Id$ */
 
 #ifndef PATTERN_H
 #define PATTERN_H
@@ -28,6 +29,9 @@ extern boolean case_insensitive;
 
 extern char* idchars;
 extern char* filechars;
+
+/* maximum length of a "*" argument: */
+extern int MAX_ARG_LEN;
 
 extern boolean debug_switch;
 
