@@ -3,7 +3,10 @@
 
 /*
  * $Log$
- * Revision 1.6  1995/07/04 23:43:33  gray
+ * Revision 1.7  2001/12/15 20:23:20  gray
+ * Work around a name conflict on Linux.
+ *
+ * Revision 1.6  1995/07/04  23:43:33  gray
  * When on Macintosh, use ':' as the directory delimiter.
  *
  * Revision 1.5 1995/05/22 02:52:28 gray
@@ -28,6 +31,12 @@ typedef enum {
   MemoryPatterns, MemoryStream, MemoryInputBuf, MemoryOutputBuf,
   MemoryVar, MemoryPath, MemoryRegexp, MemoryDispatch
 } Memory_Kinds;
+
+#ifdef __linux__
+/* On Linux, change the name of this to avoid some sort of compiler or
+   linker confusion when optimized. */
+#define allocate gema_mem_alloc
+#endif
 
 /* allocate memory space; does not return unless succesful */
 void* allocate( size_t size, Memory_Kinds what );
