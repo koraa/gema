@@ -11,11 +11,16 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.10  1995/07/27 05:27:27  gray
-/* If template does not advance the input stream, continue looking for the
-/* next match instead of repeating the same match.  Fix for "\B" followed by
-/* argument instead of literal.  Extend `filechars' for Macintosh.
+/* Revision 1.11  1995/08/06 02:24:31  gray
+/* Fix bug on "\A" (regression in previous version).
+/* Allow "\Z" to match goal string of recursive argument.
+/* Add "<J>" (match lower case) and "<K>" (match upper case).
 /*
+ * Revision 1.10  1995/07/27  05:27:27  gray
+ * If template does not advance the input stream, continue looking for the
+ * next match instead of repeating the same match.  Fix for "\B" followed by
+ * argument instead of literal.  Extend `filechars' for Macintosh.
+ *
  * Revision 1.9 1995/06/18 23:20:21 gray
  * Some refinement of trace.
  *
@@ -387,6 +392,8 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 		}
 	  /* else fall-through */
 	case 'L': ok = isalpha(ic); break;		/* letters */
+	case 'J': ok = islower(ic); break;		/* lower case */
+	case 'K': ok = isupper(ic); break;		/* upper case */
 	case 'A': ok = isalnum(ic); break;		/* alphanumerics */
 	case 'I': ok = isident(ic); break;		/* identifier */
 	case 'G': ok = isgraph(ic); break;		/* graphic char */
@@ -620,7 +627,9 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  goto failure;
 	/* else fall-through */
       case PTX_INIT: /* beginning of input data */
-	if ( cis_prevch(in) == EOF )
+	/* when this is at the beginning of a template, we wouldn't have
+	   gotten here unless it was already known to be true. */
+	if ( ps-1 == patstring || cis_prevch(in) == EOF )
 	  break;
 	else goto failure;
       case PTX_END_FILE:
@@ -628,7 +637,13 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  goto failure;
 	/* else fall-through */
       case PTX_FINAL: /* end of input data */
-	if ( cis_peek(in) == EOF )
+	/* when this is at the beginning of a template, we wouldn't have
+	   gotten here unless it was already known to be true. */
+	if ( ps-1 == patstring || cis_peek(in) == EOF )
+	  break;
+	else if ( goal != NULL && ps[0] == PTX_FINAL &&
+		  try_pattern( in, goal, NULL, NULL,
+			       (options & ~MatchSwallow), NULL) )
 	  break;
     	else goto failure;
       case PTX_POSITION: /* leave input stream here after match */
@@ -866,7 +881,9 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
   Pattern pat;
   for ( pat = domainpt->init_and_final_patterns ; pat != NULL ; pat = pat->next ) {
     const unsigned char* ps = pat->pattern;
-    if ( ps[1] == PTX_INIT || ps[1] == PTX_BEGIN_FILE )
+    assert( ps[0] == PT_AUX );
+    if ( ps[1] == PTX_INIT ||
+	 ( ps[1] == PTX_BEGIN_FILE && cis_prevch(in) == EOF ) )
       if ( try_match( in, pat, out, goal ) ) {
 	no_match = FALSE;
 	if ( translation_status == Translate_Continue )
@@ -891,7 +908,7 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
 	  break;  /* done */
 	else /* use general pattern matching */
 	  if ( try_pattern( in, goal, NULL, NULL,
-	     		    (global_options & ~MatchSwallow), goal ) )
+	     		    (global_options & ~MatchSwallow), NULL ) )
 	    break;
       }
     }
@@ -921,10 +938,10 @@ next_char: ;
   Pattern pat;
   for ( pat = domainpt->init_and_final_patterns ; pat != NULL ; pat = pat->next ) {
     const unsigned char* ps = pat->pattern;
-    if ( ps[1] == PTX_FINAL || ps[1] == PTX_END_FILE ) {
+    if ( ps[1] == PTX_FINAL ||
+	 ( ps[1] == PTX_END_FILE && cis_peek(in) == EOF) )
       if ( try_match( in, pat, out, goal ) )
 	no_match = FALSE;
-    }
   }
   if ( no_match && cis_prevch(in) == EOF && cis_peek(in) == EOF ) {
     for ( pat = domainpt->patterns.head ; pat != NULL ; pat = pat->next ) {
