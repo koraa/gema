@@ -240,7 +240,8 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 		}
 	  /* else fall-through */
 	case 'D': ok = isdigit(ic); break;		/* digits */
-	case 'W': if ( ic == '\'' && num_found > 0 ) {	/* word */
+	case 'W': if ( num_found > 0 &&			/* word */
+		       ( ic == '\'' || ic == '-' ) ) {
 		    ok = TRUE;
 		    break;
 		}
@@ -484,7 +485,13 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  else goto failure; /* don't terminate the argument yet */
 	}
 	break;
-      case PTX_JOIN: break;
+      case PTX_JOIN:
+	if ( ignore_whitespace ) {
+	  ic = cis_peek(in);
+	  if ( isspace(ic) && ic != ps[1] )
+	    goto failure; /* prevent the space from being ignored */
+	}
+     	break;
 #ifndef NDEBUG
       default:
 	input_error( in, EXS_FAIL, "Undefined aux op in template: %d\n", ec);
@@ -627,23 +634,21 @@ static int domains_checked = 1;
 
 boolean translate ( CIStream in, Domain domainpt, COStream out,
 		   const unsigned char* goal ){
-  Patterns p;
   Domain idp;
   int ch, ch2;
   unsigned goal_char;
   enum Translation_Status save_fail;
   CIStream save_input;
-  Pattern empty_template = NULL;
   boolean no_match = TRUE;
+  boolean discard = FALSE;
 
-  p = &domainpt->patterns;
   save_input = input_stream;
   if ( cis_pathname(in) != NULL )
     input_stream = in;
   for ( ; domains_checked < ndomains ; domains_checked++ ) {
     Domain dp = domains[domains_checked];
     if ( dp->patterns.head == NULL && dp->patterns.dispatch == NULL &&
-  	 dp->name[0] != '\0' )
+  	 dp->name[0] != '\0' && dp->init_and_final_patterns == NULL )
       fprintf(stderr, "Domain name \"%s\" is referenced but not defined.\n",
 		dp->name);
   }
@@ -655,10 +660,11 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
   goal_char = goal == NULL ? ENDOP : get_goal_char(goal);
   save_fail = translation_status;
   translation_status = Translate_Complete;
-
+  if ( discard_unmatched && domainpt->name[0] == '\0' )
+    discard = TRUE;
   {	/* do any initialization actions */
   Pattern pat;
-  for ( pat = p->head ; pat != NULL ; pat = pat->next ) {
+  for ( pat = domainpt->init_and_final_patterns ; pat != NULL ; pat = pat->next ) {
     const unsigned char* ps = pat->pattern;
     if ( ps[0] == PT_AUX && ps[2] == PT_END &&
   	 ( ps[1] == PTX_INIT ||
@@ -668,8 +674,6 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
 	do_action( pat->action, NULL, out );
 	no_match = FALSE;
       }
-    else if ( ps[0] == PT_END )
-      empty_template = pat;
     }
   }
 
@@ -708,14 +712,14 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
       input_error(in, EXS_INPUT, __FILE__
       " line %d : ch2 = '%c', ch = '%c'\n", __LINE__, ch2, ch);
 #endif
-    if ( !discard_unmatched )
+    if ( !discard )
       cos_putch(out, (char)ch2);
 next_char: ;
   }  /* end for */
 
   {		/* do any finalization actions */
   Pattern pat;
-  for ( pat = p->head ; pat != NULL ; pat = pat->next ) {
+  for ( pat = domainpt->init_and_final_patterns ; pat != NULL ; pat = pat->next ) {
     const unsigned char* ps = pat->pattern;
     if ( ps[0] == PT_AUX && ps[2] == PT_END &&
 	 ( ps[1] == PTX_FINAL ||
@@ -726,12 +730,16 @@ next_char: ;
       no_match = FALSE;
      }
    }
+  if ( no_match && cis_prevch(in) == EOF && cis_peek(in) == EOF ) {
+    for ( pat = domainpt->patterns.head ; pat != NULL ; pat = pat->next ) {
+      if ( pat->pattern[0] == PT_END ) {
+	/* empty template matches empty input stream */
+	current_rule = pat;
+	do_action( pat->action, NULL, out );
+	break;
+      }
+    }
   }
-  if ( empty_template != NULL && no_match &&
-       cis_prevch(in) == EOF && cis_peek(in) == EOF ) {
-    /* empty template matches empty input stream */
-    current_rule = empty_template;
-    do_action( empty_template->action, NULL, out );
   }
   translation_status = save_fail;
   input_stream = save_input;
