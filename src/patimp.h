@@ -200,7 +200,7 @@ extern Domain domains[MAX_DOMAINS];
 void delete_domain(int n);
 
 extern enum Translation_Status
-  { Translate_Complete, Translate_Exited, Translate_Failed }
+  { Translate_Complete, Translate_Continue,Translate_Exited, Translate_Failed }
   translation_status;
 
 const unsigned char*
