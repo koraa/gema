@@ -131,7 +131,8 @@ do_args(char** argv) {
    be processed. */
 static char argv_rules[] =
 CI "\\N-h*\\n=@show-help@end\n"
-   "\\A\\n\\Z=@show-help@end\n"
+   "\\A\\n\\Z=@err{@version\\N@show-help}@end\n"
+CI "\\N-version\\n=@err{@version\\N}\n"
 CI "\\N-f\\n*\\n=@set-switch{b;0}@define{@read{*}}@set-switch{b;${.BINARY;0}}\n"
 CI "\\N-p\\n*\\n=@define{*}\n"
    "\\N-<L1>\\n=@set-switch{$1;1}\n"
