@@ -9,7 +9,7 @@
   an acknowledgment of the original source.
  *********************************************************************/
 
-#if defined(_QC)
+#if defined(_QC) || defined(_MSC_VER) /* Microsoft C or Quick C */
 #pragma check_stack(off)
 #endif
 
@@ -23,6 +23,10 @@
 /* for the `stat' struct: */
 #include <sys/types.h>
 #include <sys/stat.h>
+
+static void
+free_buffer( unsigned char* start, unsigned char* bufend );
+
 
 /* ============    Input Streams ==============  */
 
@@ -58,12 +62,6 @@ allocate_input_stream(void) {
   }
   return (CIStream)
     allocate( sizeof(struct input_stream_struct), MemoryStream );
-}
-
-static void
-free_input_stream(CIStream s) {
-  s->next = (unsigned char*)(void*)in_free_list;
-  in_free_list = s;
 }
 
 static boolean
@@ -403,11 +401,14 @@ void cis_close(CIStream s){
   }
   s->next = NULL;
   if ( s->bufend != NULL ) {
-    free( s->start );
+    free_buffer(s->start, s->bufend);
     s->start = NULL;
     s->bufend = NULL;
   }
-  free(s);
+
+  /* instead of:  free(s);  */
+  s->next = (unsigned char*)(void*)in_free_list;
+  in_free_list = s;
 }
 
 void input_error( CIStream s, Exit_States code, const char* format, ... ) {
@@ -443,6 +444,9 @@ struct output_stream_struct {
   const char* pathname;
 };
 
+#define OutBufSize 512
+static unsigned char* free_buf_list = NULL;
+
 static COStream out_free_list = NULL;
 
 static COStream
@@ -461,8 +465,6 @@ free_output_stream(COStream s) {
   s->next = (unsigned char*)(void*)out_free_list;
   out_free_list = s;
 }
-
-#define OutBufSize 512
 
 static void
 expand_output_buffer ( COStream s, int need ) {
@@ -631,6 +633,14 @@ open_output_file( const char* pathname, boolean binary )
   FILE* outfs;
   if ( pathname[0] == '-' && pathname[1] == '\0' )
     return stdout_stream;
+  if ( probe_pathname(pathname) == 'D' ) {
+    /* avoid renaming a directory */
+    input_error(input_stream, EXS_OUTPUT,
+  	        "Output path \"%s\" is not a file.\n", pathname);
+    if ( keep_going )
+      return NULL;
+    else exit(EXS_OUTPUT);
+  }
   if ( current_backup != NULL ) {
     free(current_backup);
     current_backup = NULL;
@@ -677,7 +687,12 @@ COStream make_buffer_output_stream(){
   s->pathname = NULL;
   s->lastch = EOF;
   s->column = 0;
-  s->start = (unsigned char*) allocate( OutBufSize, MemoryOutputBuf );
+  if ( free_buf_list != NULL ) {
+    s->start = free_buf_list;
+    free_buf_list = *(unsigned char**)free_buf_list;
+  }
+  else
+    s->start = (unsigned char*) allocate( OutBufSize, MemoryOutputBuf );
   s->next = s->start;
   s->bufend = s->start + OutBufSize;
   return s;
@@ -694,6 +709,18 @@ unsigned cis_out_length( COStream s ){
   else return s->next - s->start;
 }
 
+static void
+free_buffer( unsigned char* start, unsigned char* bufend ) {
+  if ( bufend != NULL ) {
+    if ( (bufend - start) == OutBufSize ) {
+      *(unsigned char**)start = free_buf_list;
+      free_buf_list = start;
+    }
+    else
+      free( start );
+  }
+}
+
 /* close stream */
 void cos_close(COStream s){
   if ( s == NULL || s == stdout_stream )
@@ -703,7 +730,7 @@ void cos_close(COStream s){
     s->fs = NULL;
   }
   if ( is_string_stream(s) ) {
-    free(s->start);
+    free_buffer(s->start, s->bufend);
     s->start = NULL;
     s->next = NULL;
   }
@@ -717,16 +744,22 @@ void cos_close(COStream s){
 }
 
 CIStream convert_output_to_input( COStream out ) {
-  size_t len;
+  size_t len, buflen;
   unsigned char* buf;
   CIStream in;
 
   assert( is_string_stream(out) && !is_file_stream(out) );
   len = out->next - out->start;
-  buf = realloc( out->start, len+1 ); /* release unused space */
+  buflen = out->bufend - out->start;
+  if ( free_buf_list == NULL && buflen == OutBufSize && len < buflen )
+    buf = out->start;
+  else {
+    buflen = len+1;
+    buf = realloc( out->start, buflen ); /* release unused space */
+  }
   buf[len] = '\0';
   in = make_string_input_stream((char*)buf, len, FALSE);
-  in->bufend = buf + len+1; /* cause free when input stream is closed */
+  in->bufend = buf + buflen; /* cause free when input stream is closed */
   out->start = NULL;
   out->next = NULL;
   free_output_stream(out);
