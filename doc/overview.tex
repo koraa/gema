@@ -34,13 +34,18 @@ When the end of the input file is reached, if there are any rules with
 template ``\verb/\E/'' (end of file) or ``\verb/\Z/'' (end of data),
 their actions will be executed, and then the files will be closed.
 
-A rule may have an empty action, with the effect that the matching text
-is simply discarded.  In each domain there may be at most one rule with
-an empty template, which signifies a default action to be taken when no
-other rule matches.  However, since an empty template does not cause the
-input stream to be advanced, this is only meaningful if the
-corresponding action exits the current context by using one of
-\verb/@end/, \verb/@terminate/, \verb/@fail/, or \verb/@abort/.
+However, if a template matches without advancing the input stream (for
+example, if it begins with ``\verb/\P/''), then after executing its action,
+the search continues as though it had not matched.  This is necessary to
+avoid hanging in a loop repeating the same match forever.
+
+A rule may have an empty action, with the effect that the matching text is
+simply discarded.  In each domain there may be at most one rule with an
+empty template, which signifies a default action to be taken when no other
+rule matches.  However, since an empty template does not cause the input
+stream to be advanced and there are no more rules to try, this is only
+meaningful if the corresponding action exits the current context by using
+one of \verb/@end/, \verb/@terminate/, \verb/@fail/, or \verb/@abort/.
 
 Generally speaking, while looking for a match, the rules within a domain will
 conceptually be tried in the same order in which they were defined, so
