@@ -3,7 +3,10 @@
  *         and replacement
  *
  * By:  Ozan S. Yigit (oz), Dept. of Computer Science, York University
- * Mods: Craig Durland
+ * Mods: Craig Durland 
+ *
+ * This version modified by Harlan Sexton to check for insufficient space
+ *  in the buffer supplied to regexp_comp() for a pattern.
  *
  * These routines are the PUBLIC DOMAIN equivalents of regex routines as
  * found in 4.nBSD UN*X, with minor extensions.
@@ -16,20 +19,20 @@
  *
  * dfa = deterministic finite automata
  * Routines:
- *  re_comp: compile a regular expression into a DFA.
- *	char *re_comp(s)
+ *  regexp_comp: compile a regular expression into a DFA.
+ *	char *regexp_comp(s)
  *	char *s;
  *	returns: NULL if OK, else error string
  *	If s is NULL or 0 length, last compiled pattern is used.
- *  re_exec: execute the DFA to match a pattern.
- *	int re_exec(s)
+ *  regexp_exec: execute the DFA to match a pattern.
+ *	int regexp_exec(s)
  *	char *s;
- *  re_subs: substitute the matched portions in a new string.
- *	int re_subs(src, dst)
+ *  regexp_subs: substitute the matched portions in a new string.
+ *	int regexp_subs(src, dst)
  *	char *src;
  *	char *dst;
- *  re_fail:	failure routine for re_exec.
- *	void re_fail(msg, op)
+ *  regexp_fail:	failure routine for regexp_exec.
+ *	void regexp_fail(msg, op)
  *	char *msg;
  *	char op;
  *  
@@ -114,7 +117,7 @@
  *  This implementation uses a bit-set representation for character sets for
  *    speed and compactness.  Each character is represented by one bit in a
  *    128-bit block.  Thus, SET or NSET always takes a constant 16 bytes in
- *    the internal dfa, and re_exec does a single bit comparison to locate
+ *    the internal dfa, and regexp_exec does a single bit comparison to locate
  *    the character in the set.
  *  Put CLO in front of what gets closed for ease of interpreting.
  *  Put END at end of what gets closed to limit recursion.
@@ -142,26 +145,8 @@
 
 /* $Id$ */
 
-/**
- * $Log$
- * Revision 1.1  1993/01/16 20:49:12  hbs
- * Adding normalize-path code to utilities directory/module.
- *
- * Revision 1.1  1993/01/16  20:21:40  hbs
- * Committing directory normalize-path and contents.
- *
- * Revision 100.1  1992/11/11  06:23:45  devin
- * renamed regexp reg-expr to avoid conflicts with the predefined regular
- * expressions
- *
- * Revision 100.1  1992/11/09  23:59:12  devin
- * added regexps
- *
- * Initial revision
-**/
-
-#ifndef REGEXP
-#define REGEXP
+#ifndef REG_EXPR_DOT_H
+#define REG_EXPR_DOT_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -174,33 +159,34 @@ extern "C" {
 unsigned char*
 regexp_comp (unsigned char* s, unsigned char* automaton, int bufsize);
 
-/* re_exec: execute the DFA to match a pattern. 
+/* regexp_exec: execute the DFA to match a pattern. 
 */
 int 
 regexp_exec (unsigned char* s, int SoL, int move, unsigned char* automaton);
 
-/* re_subs: substitute the matched portions in a new string. 
+/* regexp_subs: substitute the matched portions in a new string. 
 */
 int 
 regexp_subs (unsigned char *src, unsigned char *dst);
 
-/* re_fail:	failure routine for re_exec. 
+/* regexp_fail:	failure routine for regexp_exec. 
 */
 void 
 regexp_fail (unsigned char *msg, unsigned char op);
 
 /* beginning of pattern and end of pattern contanin the start and end position
    of the the matched pieces.  
-   bopat [0], eopat [0] is the total mathc
+   bopat [0], eopat [0] is the total match
    bopat [1-9] .. is the part matched by \1-9
 */
-extern unsigned char *bopat[], *eopat[];
+extern unsigned char *regext_bopat[], *regexp_eopat[];
 
-/* error string returned if the dfa argument to regexp_comp() is too short */
-#define DFA_SHORT "The buffer provided to store the compiled DFA is too small."
+/* error string returned if the buffer supplied to regexp_comp() is 
+   too short for the compiled pattern */
+extern unsigned char *regexp_dfa_buffer_too_short;
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* REGEXP */
+#endif /* REG_EXPR_DOT_H */

@@ -228,6 +228,11 @@ static CHAR bittab[BITBLK];	/* bit table for SET */
 
 static void chset(c)  CHAR c; { CHSET(bittab,c); }
 
+static char *dummy_tmp = 
+"The buffer provided to store the compiled DFA is too small.";
+CHAR *regexp_dfa_buffer_too_short = (CHAR *) &(dummy_tmp[0]);
+#define DFA_SHORT dummy_tmp
+
 #define badpat(msg) return (*dfa = END, (CHAR *)((dfa_short)?(DFA_SHORT):msg))
 #define CHECK_RETURN() return ((CHAR *)((dfa_short)?(DFA_SHORT):NULL))
 #define store(x) ((mp < dfa_limit)?(*mp++ = x):(dfa_short = 1))
@@ -353,8 +358,9 @@ CHAR *regexp_comp(pat, dfa, bufsize) CHAR *pat; CHAR* dfa; int bufsize;
   CHECK_RETURN();
 }
 
+
 static CHAR *bol;
-CHAR *bopat[MAXTAG], *eopat[MAXTAG];
+CHAR *regexp_bopat[MAXTAG], *regexp_eopat[MAXTAG];
 static CHAR *pmatch();
 int regexp_errorcode;	/* sleaze */
 
@@ -369,8 +375,8 @@ int regexp_errorcode;	/* sleaze */
  *  END
  *	regexp_comp failed, poor luser did not check for it. Fail fast.
  *
- * If a match is found, bopat[0] and eopat[0] are set to the beginning and
- *   the end of the matched fragment, respectively.
+ * If a match is found, regexp_bopat[0] and regexp_eopat[0] are set to 
+ *   the beginning and the end of the matched fragment, respectively.
  *
  * Input:
  *	lp: string to search
@@ -380,41 +386,43 @@ int regexp_errorcode;	/* sleaze */
 
 int regexp_exec(lp,SoL,move,dfa)  CHAR *lp; int SoL, move; CHAR* dfa;
 {
-   CHAR *ap = dfa, c;
+  CHAR *ap = dfa, c;
   CHAR *ep = NULL;
 
-  regexp_errorcode = FALSE;		/* assume no match */
+  regexp_errorcode = FALSE;     /* assume no match */
   bol = (SoL ? lp : NULL);
 
-  bopat[0] = bopat[1] = bopat[2] = bopat[3] = bopat[4] = bopat[5] = 
-  bopat[6] = bopat[7] = bopat[8] = bopat[9] = NULL;
+  regexp_bopat[0] = regexp_bopat[1] = regexp_bopat[2] = 
+    regexp_bopat[3] = regexp_bopat[4] = regexp_bopat[5] = 
+      regexp_bopat[6] = regexp_bopat[7] = regexp_bopat[8] = 
+        regexp_bopat[9] = NULL;
 
   switch(*ap)
-  {
-    case END: return FALSE;		/* munged automaton. fail always */
-    case BOL:				/* anchored: match from BOL only */
-      if (!SoL) return FALSE;		/* BoL can only be at front of dfa */
+    {
+    case END: return FALSE;     /* munged automaton. fail always */
+    case BOL:                   /* anchored: match from BOL only */
+      if (!SoL) return FALSE;   /* BoL can only be at front of dfa */
       ep = pmatch(lp,++ap); break;
-    case CHR:				/* ordinary char: locate it fast */
+    case CHR:                   /* ordinary char: locate it fast */
       if (move)
-      {
-	c = *(ap+1);
-	while (*lp && !ceq(*lp,c)) lp++;
+        {
+          c = *(ap+1);
+          while (*lp && !ceq(*lp,c)) lp++;
 #if 0
-	if (!*lp) return FALSE;		/* if EoS fail. else fall thru */
+          if (!*lp) return FALSE; /* if EoS fail. else fall thru */
 #endif
-      }
-    default:				/* regular matching all the way. */
+        }
+    default:                    /* regular matching all the way. */
       if (!move) { ep = pmatch(lp,ap); break; }
       while (*lp)
-      {
-	if ((ep = pmatch(lp,ap))) break;
-	lp++;
-      }
-  }
-  if (!ep) return regexp_errorcode;		/* only if pmatch() returns NULL */
+        {
+          if ((ep = pmatch(lp,ap))) break;
+          lp++;
+        }
+    }
+  if (!ep) return regexp_errorcode; /* only if pmatch() returns NULL */
 
-  bopat[0] = lp; eopat[0] = ep; 
+  regexp_bopat[0] = lp; regexp_eopat[0] = ep; 
   return TRUE;
 }
 
@@ -437,10 +445,10 @@ int regexp_exec(lp,SoL,move,dfa)  CHAR *lp; int SoL, move; CHAR* dfa;
  *    point of failure, we execute the remaining dfa recursively, as
  *    described above.
  *
- * At the end of a successful match, bopat[n] and eopat[n] are set to the
- *  beginning and end of subpatterns matched by tagged expressions (n = 1 to
- *  9).
- */
+ * At the end of a successful match, regexp_bopat[n] and regexp_eopat[n]
+ * are set to the beginning and end of subpatterns matched by tagged
+ * expressions (n = 1 to 9).
+*/
 
 extern void regexp_fail();
 
@@ -472,8 +480,8 @@ static CHAR *pmatch(lp,dfa)  CHAR *lp, *dfa;
 	dfa += BITBLK;
 	break;
       case EOL: if (*lp != '\0') return NULL; break;
-      case BOT: bopat[*dfa++] = lp; break;
-      case EOT: eopat[*dfa++] = lp; break;
+      case BOT: regexp_bopat[*dfa++] = lp; break;
+      case EOT: regexp_eopat[*dfa++] = lp; break;
       case ALNUM: if (!isalnum(*lp++)) return NULL; break;
       case ALPHA: if (!isalpha(*lp++)) return NULL; break;
       case DIGIT: if (!isdigit(*lp++)) return NULL; break;
@@ -489,7 +497,7 @@ static CHAR *pmatch(lp,dfa)  CHAR *lp, *dfa;
  *	return NULL;
 #endif
       case REF:		/* !!! case_fold? */
-        n = *dfa++; bp = bopat[n]; ep = eopat[n];
+        n = *dfa++; bp = regexp_bopat[n]; ep = regexp_eopat[n];
 	while (bp < ep) if (*bp++ != *lp++) return NULL;  /* !!! recurse? */
 	break;
       case CLO:
@@ -546,7 +554,7 @@ int regexp_subs(src,dst)  CHAR *src, *dst;
    CHAR c, *bp, *ep;
    int pin;
 
-  if (!bopat[0]) return FALSE;
+  if (!regexp_bopat[0]) return FALSE;
 
   while (c = *src++)
   {
@@ -558,7 +566,7 @@ int regexp_subs(src,dst)  CHAR *src, *dst;
 	if (c >= '0' && c <= '9') { pin = c - '0'; break; }
       default: *dst++ = c; continue;
     }
-    if ((bp = bopat[pin]) && (ep = eopat[pin]))
+    if ((bp = regexp_bopat[pin]) && (ep = regexp_eopat[pin]))
     {
       while (*bp && bp < ep) *dst++ = *bp++;
       if (bp < ep) return FALSE;
