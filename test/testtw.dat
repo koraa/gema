@@ -45,3 +45,13 @@ putpost:+?\0*= %prog1($2, $2 := $2 $1 1)
 putpost:*\0*= $2$1
 
 Convert(<expression>)=\N$1\n
+
+define variable <I>=var $1\n
+define  constant   <I>=const $1\n
+define type <I>=type $1\n
+fig\J<opts>\I=plum$1\n
+opts:\Js\J=s@end;=@end
+
+@set-switch{t;0}
+\Iprune\J<optes>\I=peach$1\n
+optes:s=es@end;=@end
