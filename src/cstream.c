@@ -40,6 +40,25 @@ struct input_stream_struct
 #define NoMark NULL
 #define BufSize 4000
 
+static CIStream in_free_list = NULL;
+
+static CIStream
+allocate_input_stream(void) {
+  if ( in_free_list != NULL ) {
+    CIStream s = in_free_list;
+    in_free_list = (CIStream)(void*)s->next;
+    return s;
+  }
+  return (CIStream)
+    allocate( sizeof(struct input_stream_struct), MemoryStream );
+}
+
+static void
+free_input_stream(CIStream s) {
+  s->next = (unsigned char*)(void*)in_free_list;
+  in_free_list = s;
+}
+
 static boolean
 extend_buffer ( CIStream s ) {
 	if ( s->first_mark == NoMark ) { /* don't need buffer anymore */
@@ -194,15 +213,18 @@ void cis_mark(CIStream s,MarkBuf* mb){
 void cis_release(CIStream s, MarkBuf* mb) {
   if ( mb == s->first_mark ) {
       s->first_mark = NoMark;
-      if ( is_string_stream(s) && is_file_stream(s) &&
-	   (s->end - s->next)*2 < (s->next - s->start) ){
-	unsigned char* n;
+      if ( is_string_stream(s) && is_file_stream(s) ) {
 	size_t len = s->end - s->next;
-	memmove( s->start, s->next-1, len+1 );
-	n = s->start+1;
-	s->next = n;
-	s->end = n + len;
-	*s->end = '\0';
+	size_t done = s->next - s->start;
+	if ( len*4 < done && done > 100 ) {
+	  unsigned char* n;
+
+	  memmove( s->start, s->next-1, len+1 );
+	  n = s->start+1;
+	  s->next = n;
+	  s->end = n + len;
+	  *s->end = '\0';
+	}
       }
   }
   else assert( s->first_mark != NoMark );
@@ -245,15 +267,14 @@ void cis_rewind(CIStream s){
 
 /* create stream */
 CIStream make_file_input_stream(FILE* f, const char* path){
-  CIStream s = (CIStream) allocate( sizeof(struct input_stream_struct),
-				MemoryStream );
+  register CIStream s = allocate_input_stream();
   s->fs = f;
   s->pathname = str_dup(path);
   s->first_mark = NoMark;
   s->peek_char = -1;
   s->cur_char = EOF;
   s->line = 1;
-  s->column = 1;
+  s->column = 0;
   s->next = NULL;
   s->start = NULL;
   s->end = NULL;
@@ -311,8 +332,7 @@ char probe_pathname(const char* pathname) {
 
 CIStream make_string_input_stream(const char* x, size_t length,
 				boolean copy){
-  CIStream s = (CIStream) allocate( sizeof(struct input_stream_struct),
-			MemoryStream );
+  register CIStream s = allocate_input_stream();
   if ( length == 0 )
     length = strlen(x);
   s->fs = NULL;
@@ -334,8 +354,7 @@ CIStream make_string_input_stream(const char* x, size_t length,
 }
 
 CIStream clone_input_stream( CIStream in ) {
-  CIStream s = (CIStream) allocate( sizeof(struct input_stream_struct),
-			MemoryStream );
+  register CIStream s = allocate_input_stream();
   assert ( is_string_stream(in) );
   *s = *in;
   s->first_mark = NoMark;
@@ -416,6 +435,25 @@ struct output_stream_struct {
   unsigned char* bufend;
   const char* pathname;
 };
+
+static COStream out_free_list = NULL;
+
+static COStream
+allocate_output_stream(void) {
+  if ( out_free_list != NULL ) {
+    COStream s = out_free_list;
+    out_free_list = (COStream)(void*)s->next;
+    return s;
+  }
+  return (COStream)
+    allocate( sizeof(struct output_stream_struct), MemoryStream );
+}
+
+static void
+free_output_stream(COStream s) {
+  s->next = (unsigned char*)(void*)out_free_list;
+  out_free_list = s;
+}
 
 #define OutBufSize 512
 
@@ -564,8 +602,7 @@ int cos_restore(COStream s, CSMark pos){
 
 /* create stream */
 COStream make_file_output_stream(FILE* f, const char* path){
-  COStream s = (COStream) allocate( sizeof(struct output_stream_struct),
-		MemoryStream );
+  register COStream s = allocate_output_stream();
   s->fs = f;
   s->pathname = str_dup(path);
   s->lastch = EOF;
@@ -628,8 +665,7 @@ open_output_file( const char* pathname, boolean binary )
 }
 
 COStream make_buffer_output_stream(){
-  COStream s = (COStream) allocate( sizeof(struct output_stream_struct),
-		MemoryOutputBuf );
+  register COStream s = allocate_output_stream();
   s->fs = NULL;
   s->pathname = NULL;
   s->lastch = EOF;
@@ -670,7 +706,7 @@ void cos_close(COStream s){
     }
   if ( s == current_output )
     current_output = NULL;
-  free(s);
+  free_output_stream(s);
 }
 
 CIStream convert_output_to_input( COStream out ) {
@@ -686,7 +722,7 @@ CIStream convert_output_to_input( COStream out ) {
   in->bufend = buf + len+1; /* cause free when input stream is closed */
   out->start = NULL;
   out->next = NULL;
-  free(out);
+  free_output_stream(out);
   return in;
 }
 
