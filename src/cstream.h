@@ -1,5 +1,7 @@
 /* character stream functions */
 
+/* $Id$ */
+
 /*********************************************************************
   This file is part of "gema", the general-purpose macro translator,
   written by David N. Gray <dgray@acm.org> in 1994 and 1995.
@@ -136,6 +138,9 @@ void cos_copy_input_stream(COStream out, CIStream in);
 void
 merge_pathnames( COStream out, boolean just_dir,
 		 const char* dpath, const char* npath, const char* tpath );
+
+void
+expand_wildcard ( const char* file_spec, COStream out );
 
 extern COStream stdout_stream;
 extern CIStream stdin_stream;
