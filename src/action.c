@@ -10,6 +10,23 @@
   an acknowledgment of the original source.
  *********************************************************************/
 
+/*
+ * $Log$
+ * Revision 1.7  1995/07/04 23:36:22  gray
+ * Use separate segment on Macintosh --
+ * from David A. Mundie <mundie@telerama.lm.com>
+ *
+ * Revision 1.6  1995/06/12 02:58:25 gray
+ * Add OP_OUTCOL and OP_GET_SWITCH.
+ *
+ * Revision 1.5  1995/05/08 03:13:42 gray
+ * Add @expand-wild
+ */
+
+#ifdef MACOS
+#pragma segment action
+#endif
+
 #include "pattern.h"
 #include "util.h"
 #include "var.h"
