@@ -1,7 +1,7 @@
 
 ! Preliminary syntax conversion from C (or C++) to Dylan
 
-! 6/14/95
+! 6/19/95, 7/26/95, 8/16/95
 
 ! not handled:
 !  `break'
@@ -11,6 +11,7 @@
 
 @set-switch{t;1}@set-switch{w;1}
 @set-syntax{L;\-\.\(\)}
+@set-wrap{70;\t}
 
 ARGV:\N-module <G>\n=@set{module;$1}
 
@@ -106,7 +107,7 @@ type:long int<stars>=\<long$1\>@end
 type:short int<stars>=\<short$1\>@end
 type:long<stars>=\<long$1\>@end
 type:short<stars>=\<short$1\>@end
-type:<I><stars>=\I@optptr{$2}\<$1\>@end
+type:<L1><i><stars>=\I@optptr{$3}\<$1$2\>@end
 type:=@fail
 
 itype:int=int@end
@@ -132,13 +133,20 @@ typedef *\;=$0 \/\/ \?\?\?
 
 static=\/\*static\*\/ ;
 
+maybe-block:\Wreturn\I\W(<match-paren>)\G\;\W\Z=\/\* return \*\/ $1
+maybe-block:\Wreturn\I\W<match-paren>\;\G\W\Z=\/\* return \*\/ $1
+maybe-block:*return*=block(return)\n\t$0\N\ end block\;
+maybe-block:*=*
+
 \I<type>\G\W<I>(<parms>)\G<space>\{<body>\}=\
-	\ndefine method @rid{$2}($3) \=\> $1\;$4\
-	\n\ block(return)\n\t$5\N\ end block\;\nend method @rid{$2}\;
+	\ndefine method @rid{$2}($3)@wrap{\ \=\> @rtntype{$1}\;}$4\
+	\n\ @maybe-block{$5}\Nend method @rid{$2}\;
 parms:,<L0>=, ;
 parms:<ReqSpace>=$1
 parms:\I<type>\W<I>=\I@rid{$2} \:\: $1
 parms:<I>=\I@rid{$1}
+
+rtntype:()=();*=value \:\: *
 
 \I<type>\G\W<I><init>=\Ndefine variable @rid{$2} \:\: $1$3
 init:\;=\;@end
@@ -151,9 +159,18 @@ const <type><space><I>\==\Ndefine constant$2 @rid{$3} \:\: $1 \= ;
 body:\{#\}=\Sbegin #\Send\;
 body:<ReqSpace>=$1
 body:<type>\G\W<I><body-init>=\Ilet @rid{$2} \:\: $1$3
+body:<I>\:<ReqSpace>=\I$1%\:$2
+body:<I>\W<optstars>\G\W<I>,<match-paren>\;=@set{T;@out-column}\
+	\Ilet @rid{$3} \:\: @type{$1\I$2}\;\n@tab{$T}\ \ @body{$1\I$4\;}
 body:<statement>=$1
-body:<I>=\I@rid{$1}
+body:<I>=\I@rid{$1}\I
 body::code
+
+optstars:\*=\*
+optstars:\CNEAR=
+optstars:\CFAR=
+optstars:\S=\I
+optstars:=@end
 
 body-init:\;=\;@end
 body-init:\=<space><val>\;= \= $1$2\;@end
@@ -170,13 +187,14 @@ code:0\J\C\Jx\J<X>=\#x$1
 code:0\J<O>=\#o$1
 
 ! reserved words in Dylan but not in C
-rid:begin=begin\@
-rid:define=define\@
-rid:method=method\@
-rid:select=select\@
-rid:let=let\@
-rid:block=block\@
-rid:make=make\@
+rid:\Cbegin=begin\@
+rid:\Cdefine=define\@
+rid:\Cmethod=method\@
+rid:\Cselect=select\@
+rid:\Clet=let\@
+rid:\Cblock=block\@
+rid:\Cmake=make\@
+rid:\Cend=end\@
 
 rid:FALSE=\#f
 rid:TRUE=\#t
@@ -225,6 +243,7 @@ code:\}=@fail;\)=@fail
 :\}=\};\)=\)
 
 statement:return(<expression><space>)<space>\;=return($1$2)$3\;@end
+statement:return\;=return()\;@end
 statement:return<expression><space>\;=return( $1 )$2\;@end
 
 statement:switch\W(<expression>)<space>\{<body>\}=select ( $1 )$2$3\N\  end select\;@end
@@ -259,7 +278,7 @@ statement:do<statement><space>while(<expression>)\;=\
 
 statement:break\;=%$0@end
 statement:continue\;=%$0@end
-statement:goto <I>\;=%$0@end
+statement:goto <I>\;=%goto $1%\;@end
 
 struct <I><space>\{<fields>\}<space>*\;=\
 	@set{sclass;\<$1\>}\
@@ -273,9 +292,9 @@ sdefs:<I>=\Ndefine variable @rid{$1} \:\: ${sclass}\;
 sdefs:\*<I>=\Ndefine variable @rid{$1} \:\: \/\* pointer to \*\/ ${sclass}\;
 sdefs:\,=
 
-postfix-expression:new <I>()=make(\<$1\>)@end
-postfix-expression:new <I>(<argument-expression-list>)=make(\<$1\>, $2)@end
-postfix-expression:new <I>=make(\<$1\>)@end
+unary-expression:new <I>()=make(\<$1\>)@end
+unary-expression:new <I>(<argument-expression-list>)=make(\<$1\>, $2)@end
+unary-expression:new <I>=make(\<$1\>)@end
 statement:delete <I>\;=\/\* delete @rid{$1}\; \*\/@end
 
 code:(\W<type>)<I>=as($1, $2)
@@ -400,7 +419,7 @@ optpost:-\><I>=.@rid{$1}@end
 optpost:++=++@end;--=+-@end
 optpost:=@end
 putpost:+?\0*= %prog1($2, $2 := $2 $1 1)
-putpost:*\0*=$2$1
+putpost:*\0*= $2$1
 
 <argument-expression-list>:,=,
 <argument-expression-list>:<ReqSpace>=$1
