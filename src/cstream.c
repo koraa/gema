@@ -9,6 +9,18 @@
   an acknowledgment of the original source.
  *********************************************************************/
 
+/*
+ * $Log$
+ * Revision 1.5  1995/07/04 23:39:03  gray
+ * For Macintosh, conditionalize out use of unsupported `stat' --
+ * adapted from David A. Mundie <mundie@telerama.lm.com>
+ *
+ * Revision 1.4 1995/05/08 04:32:58 gray
+ * If output file path is actually a directory, reports error instead of
+ * renaming the directory.
+ * For efficiency, use free list for input streams and output buffers.
+ */
+
 #if defined(_QC) || defined(_MSC_VER) /* Microsoft C or Quick C */
 #pragma check_stack(off)
 #endif
@@ -21,8 +33,10 @@
 #include <stdarg.h>
 
 /* for the `stat' struct: */
+#ifndef MACOS
 #include <sys/types.h>
 #include <sys/stat.h>
+#endif
 
 static void
 free_buffer( unsigned char* start, unsigned char* bufend );
@@ -314,14 +328,23 @@ boolean cis_is_file(CIStream s) {
 
 time_t cis_mod_time(CIStream s) {
   if ( s != NULL && s->fs != NULL && s->pathname != NULL ) {
+#ifdef MACOS
+    /* Don't yet know how to implement this on Macintosh. */
+    return 0;
+#else
     struct stat sbuf;
     fstat( fileno(s->fs), &sbuf );
     return sbuf.st_mtime;
+#endif
   }
   else return 0;
 }
 
 char probe_pathname(const char* pathname) {
+#ifdef MACOS
+    /* Don't yet know how to implement this on Macintosh. */
+    return 'X';
+#else
     struct stat sbuf;
     if ( stat( pathname, &sbuf ) == 0 ) {
       if ( sbuf.st_mode & S_IFDIR )
@@ -333,6 +356,7 @@ char probe_pathname(const char* pathname) {
       else return 'X'; /* unexpected mode */
     }
     else return 'U'; /* undefined */
+#endif
 }
 
 CIStream make_string_input_stream(const char* x, size_t length,
