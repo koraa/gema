@@ -5,15 +5,18 @@
 /*********************************************************************
   This file is part of "gema", the general-purpose macro translator,
   written by David N. Gray <dgray@acm.org> in 1994 and 1995.
+  Adapted for the Macintosh by David A. Mundie <mundie@telerama.lm.com>.
   You may do whatever you like with this, so long as you retain
   an acknowledgment of the original source.
  *********************************************************************/
 
 /*
  * $Log$
- * Revision 1.5  1995/07/04 23:39:03  gray
- * For Macintosh, conditionalize out use of unsupported `stat' --
- * adapted from David A. Mundie <mundie@telerama.lm.com>
+ * Revision 1.6  1995/07/27 02:49:08  gray
+ * For Macintosh, new function `get_info_block' in lieu of `stat'.
+ *
+ * Revision 1.5  1995/07/04  23:39:03  gray
+ * For Macintosh, conditionalize out use of unsupported `stat'.
  *
  * Revision 1.4 1995/05/08 04:32:58 gray
  * If output file path is actually a directory, reports error instead of
@@ -32,8 +35,11 @@
 #include <assert.h>
 #include <stdarg.h>
 
+#if defined(MACOS)
+#include <Files.h>
+#include <Strings.h>
+#else
 /* for the `stat' struct: */
-#ifndef MACOS
 #include <sys/types.h>
 #include <sys/stat.h>
 #endif
@@ -326,11 +332,31 @@ boolean cis_is_file(CIStream s) {
   return is_file_stream(s);
 }
 
+#ifdef MACOS
+static CInfoPBRec myblock;
+
+OSErr get_info_block(const char* pathname) {
+	static WDPBRec mywd;
+	OSErr e;
+
+	e = PBHGetVol(&mywd, 0);
+	if (e) return e;
+	pathname = c2pstr(pathname);
+	myblock.hFileInfo.ioNamePtr = pathname;
+	myblock.hFileInfo.ioVRefNum = mywd.ioVRefNum;
+	myblock.hFileInfo.ioDirID = mywd.ioWDDirID;
+	e=PBGetCatInfo(&myblock, 0);
+	pathname = p2cstr(pathname);
+	return e;
+}
+#endif
+
 time_t cis_mod_time(CIStream s) {
   if ( s != NULL && s->fs != NULL && s->pathname != NULL ) {
 #ifdef MACOS
-    /* Don't yet know how to implement this on Macintosh. */
-    return 0;
+    if (get_info_block(s->pathname)==0)
+      return myblock.hFileInfo.ioFlMdDat;
+    else return 0;
 #else
     struct stat sbuf;
     fstat( fileno(s->fs), &sbuf );
@@ -342,8 +368,11 @@ time_t cis_mod_time(CIStream s) {
 
 char probe_pathname(const char* pathname) {
 #ifdef MACOS
-    /* Don't yet know how to implement this on Macintosh. */
-    return 'X';
+    if (get_info_block(pathname)==0) {
+      if (myblock.hFileInfo.ioFlAttrib & 16)
+        return 'D'; /* Directory */
+      else return 'F';        /* File */
+    } else return 'X'; /* Unexpected */
 #else
     struct stat sbuf;
     if ( stat( pathname, &sbuf ) == 0 ) {
@@ -446,7 +475,15 @@ void input_error( CIStream s, Exit_States code, const char* format, ... ) {
     if ( s != NULL && is_file_stream(s) ) {
       const char* path = cis_pathname(s);
       if ( path != NULL )
-	fprintf(stderr, "File \"%s\" line %ld: ",
+#if defined(MACOS)
+	/* For MPW, this makes the output "self-referential I/O" - users can
+		execute the error message as a command, and it takes them to
+		the point in the file where the error occurred.
+		-- D.A.M. 7/21/95 */
+        fprintf(stderr, "File \"%s\"; line %ld # ",
+#else
+        fprintf(stderr, "File \"%s\" line %ld:",
+#endif
 		pathname_name_and_type(path),
 		cis_line(s) );
     }
