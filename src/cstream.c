@@ -12,7 +12,12 @@
 
 /*
  * $Log$
- * Revision 1.8  1995/09/29 04:08:41  gray
+ * Revision 1.9  1996/04/08 05:09:02  gray
+ * Fix `extend_buffer' to correctly handle binary files on MS-DOS.
+ * Modify `open_output_file' to facilitate better error message when input and
+ * output files are the same and non-existent.
+ *
+ * Revision 1.8  1995/09/29  04:08:41  gray
  * Fix to work with "gcc" and SunOS library.
  *
  * Revision 1.7  1995/08/20  05:29:32  gray
@@ -105,13 +110,28 @@ extend_buffer ( CIStream s ) {
 	  s->start = NULL; s->next = NULL; s->bufend = NULL;
 	  s->peek_char = -1;
 	}
-	else if ( s->end < (s->bufend-2) ) { /* read another line in buffer */
-	  unsigned char* r;
-	  r = (unsigned char*)
-	    fgets((char*)s->end, (s->bufend - s->end), s->fs);
-	  if ( r != NULL )
-	    s->end = r + strlen((char*)r);
-	  else return FALSE;
+	else if ( s->end < (s->bufend-2) ) { /* read more into buffer */
+	  if ( s->fs == stdin && ! binary ) {
+	    /* for interactive input, don't read more than 1 line at a time */
+	    unsigned char* r;
+	    r = (unsigned char*)
+	      fgets((char*)s->end, (s->bufend - s->end), s->fs);
+	    if ( r != NULL )
+	      s->end = r + strlen((char*)r);
+	    else return FALSE;
+	  }
+	  else {
+	    unsigned char* bp;
+	    size_t nread, maxread;
+	    bp = s->end;
+	    maxread = s->bufend - bp;
+	    if ( maxread > 128 )
+	      maxread = 128;
+	    nread = fread((char*)bp, 1, maxread, s->fs);
+	    if ( nread > 0 )
+	      s->end = bp + nread;
+	    else return FALSE;
+	  }
 	}
        else { /* need to expand the buffer */
 	 unsigned char* x;
@@ -735,7 +755,8 @@ open_output_file( const char* pathname, boolean binary )
     bakpath = convert_output_to_input( outbuf );
     backup_pathname = cis_whole_string(bakpath);
     remove(backup_pathname);
-    if ( rename(pathname,backup_pathname) == 0 ) {
+    if ( rename(pathname,backup_pathname) == 0 ||
+	 probe_pathname(backup_pathname) == 'U' ) {
       current_backup = str_dup(backup_pathname);
     }
     cis_close(bakpath);
