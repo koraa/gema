@@ -44,6 +44,7 @@ static struct switches {
     { "match", &discard_unmatched },
     { "i", &case_insensitive },
     { "w", &ignore_whitespace },
+    { "t", &token_mode },
 #ifndef NDEBUG
     { "debug", &debug_switch },
 #endif
@@ -144,13 +145,17 @@ CI "\\N-debug\\n=@set-switch{debug;1}\n"
 #endif
 CI "\\N-line\\n=@set-switch{line;1}\n"
 CI "\\N-match\\n=@set-switch{match;1}\n"
+#ifndef MSDOS
+CI "\\N-n\\n=@set-switch{match;1}\n"	/* like for sed */
+CI "\\N-e\\n*\\n=@define{*}\n"		/* like for sed */
+#endif
 CI "\\N-out\\n*\\n=@set{.OUT;$1}\n"
 CI "\\N-in\\n*\\n=@set{.IN;$1}\n"
    "\\N\\L*\\=*\\n=@define{$0}\n"
    "\\N\\L\\@*\\{*\\n=@define{$0}\n"
 CI "\\N-odir\\n*\\n=@set{.ODIR;*}\n"
 CI "\\N-otyp\\n*\\n=@set{.OTYP;*}\n"
-   "\\N-*\\n=@err{Unrecognized option: \"-*\"\\n}@exit-status{3}\n"
+   "\\N-*\\n=@err{Unrecognized option:\\ \"-*\"\\n}@exit-status{3}\n"
    "\\n=\n"
    "\\N*\\n=@ARGV-FILE{${.ODIR;}\\n${.OUT;}\\n${.IN;}\\n*}\n"
    "\\Z=@ARGV-END{${.OUT;}\\n${.IN;}\\n${.ODIR;}\\n}\n"
@@ -158,9 +163,9 @@ CI "\\N-otyp\\n*\\n=@set{.OTYP;*}\n"
  "\\n\\n<U>\\n<U>=@set{.OUT;$2};"
  "\\n<U>\\n<U>\\n<U>=@err{More than two files specified.\\n}@exit-status{3};"
  "\\n<U>\\n*\\n<U>=@write{$1;@{@read{$3}}};"
- "<U>\\n\\n*\\n<U>=@bind{.OUT;@makepath{$1;@relpath{$3;$3};${.OTYP;$3}}}"
+ "<U>\\n\\n*\\n<U>=@bind{.OUT;@makepath{$1;@relpath{$3;$3};${.OTYP;}}}"
   "@write{${.OUT};@{@read{$3}}}@close{${.OUT}}@unbind{.OUT};"
- "<U>\\n<U>\\n=@err{Not meaningful\\: both -out and -odir\\n}"
+ "<U>\\n<U>\\n=@err{Not meaningful\\:\\ both\\ -out\\ and\\ -odir\\n}"
 	"@exit-status{3}@end\n"
 "ARGV-END:\\n\\n<U>\\n=@end;" /* -odir was specified */
  "<U>\\n\\n\\n=@end;"
