@@ -460,6 +460,19 @@ For example:
   \verb|@relative-path{/a/x/cat.x;/a/x/dog.c}| $\Rightarrow$ \verb|dog.c|\\
   \verb|@relative-path{/a/x/cat.x;/a/y/dog.c}| $\Rightarrow$ \verb|/a/y/dog.c|
 \end{flushleft}
+
+\item[{\tt @expand-wild\ttlb}{\it pathname}{\tt \ttrb}]
+Usually this function just returns its argument followed by a newline.
+When running on MS-DOS and the {\it pathname} is a wild card (i.e. contains
+``\verb/*/'' or ``\verb/?/''), the return value consists of all files
+that match the pattern, with a newline following each one.  If there are
+no matches, a warning is written to the error output and the return value
+is empty.  This wild card expansion is done by an MS-DOS system call, so it
+is consistent with other MS-DOS utilities, but the meaning of ``\verb/*/''
+is not completely the same as in {\bf gema} patterns.
+On Unix, wild card arguments are presumed to have already been expanded by
+the shell, so expansion is not done here.
+
 \end{description}
 
 \subsubsection{Using alternate input and output files}
