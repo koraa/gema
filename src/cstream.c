@@ -12,7 +12,11 @@
 
 /*
  * $Log$
- * Revision 1.10  2001/12/15 20:22:01  gray
+ * Revision 1.11  2002/02/17 00:29:39  gray
+ * On Windows 95 and later, append ".bak" like on Unix instead of replacing
+ * the extension like on MS-DOS.
+ *
+ * Revision 1.10  2001/12/15  20:22:01  gray
  * Update directory check to be more portable.
  * Clean up compiler warnings.
  *
@@ -754,13 +758,13 @@ open_output_file( const char* pathname, boolean binary )
     COStream outbuf;
     const char* backup_pathname;
     outbuf = make_buffer_output_stream();
-#if defined(unix) | defined(__unix__) | defined(__unix)
-    /* on Unix, append ".bak" to the file name */
+#if defined(MSDOS) && !defined(_WIN32)
+    /* on MS-DOS (8.3 filenames), replace any previous extension */
+    merge_pathnames( outbuf, FALSE, NULL, pathname, backup_suffix);
+#else
+    /* on Unix or Win32, append ".bak" to the file name */
     cos_puts(outbuf,pathname);
     cos_puts(outbuf,backup_suffix);
-#else
-    /* on MS-DOS, replace any previous extension */
-    merge_pathnames( outbuf, FALSE, NULL, pathname, backup_suffix);
 #endif
     bakpath = convert_output_to_input( outbuf );
     backup_pathname = cis_whole_string(bakpath);
