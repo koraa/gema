@@ -11,7 +11,7 @@
 	can be distinguished from the original version.
  */
 
-const char what_string [] = "@(#)gema 1.2 Aug. 19, 1995";
+const char what_string [] = "@(#)gema 1.2 Aug. 27, 1995";
 
 
 /* this is just so it will appear in "strings" output: */
