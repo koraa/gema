@@ -8,7 +8,7 @@ all: doc.ps gema.ps doc.html gema.html
 TEXFILES = doc.tex overview.tex notation.tex function.tex conclude.tex
 
 doc.dvi: ${TEXFILES}
-	latex doc.tex
+	latex doc.tex || rm -f doc.dvi
 
 doc.ps: doc.dvi
 	dvi2ps doc.dvi > $@
