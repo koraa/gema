@@ -24,6 +24,8 @@ EXS_MEM 	/* out of memory */
 
 extern Exit_States exit_status;
 
+extern const char Version[];
+
 boolean
 set_switch(const char* name, boolean value);
 
