@@ -98,11 +98,13 @@ LDTSC
  id(a_b) file(foo.c)
  text(	.) universal( )
  graphic(%?)
+ word(co-op)
 --------------------
 
 (- b c)
 (- (* a b) c)
 --------------------
 
+..   ..
 the tail
 End File
