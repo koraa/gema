@@ -28,9 +28,10 @@ Num( 3.5 )
 Num( -12345.00 )
 All
 The firehouse.
-Merge("/foo/bar/junk.x", "baz.c", "bonk.o" )
-Merge("C:\foo\bar\junk.x", "baz.c", "bonk.o" )
-Merge("/foo/bar", "/bozo/baz", "text" )
+@Rem -- following commented out because system dependent --
+@Rem Merge("/foo/bar/junk.x", "baz.c", "bonk.o" )
+@Rem Merge("C:\foo\bar\junk.x", "baz.c", "bonk.o" )
+@Rem Merge("/foo/bar", "/bozo/baz", "text" )
 Tabs(alpha,beta,gamma)
 \verb-foo-
 @begin(roman_list)

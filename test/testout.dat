@@ -35,9 +35,6 @@ Num(3.5)
 Num(-12,345.00)
 All = +3.5+-12345.00
 The [firehouse.]
-"/foo/bar/baz.o"
-"C:\foo\bar\baz.o"
-"/bozo/baz.text"
 alpha    beta      gamma
 <TT>foo</TT>
 
