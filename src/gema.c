@@ -12,7 +12,10 @@
 
 /*
  * $Log$
- * Revision 1.11  1995/08/07 03:21:25  gray
+ * Revision 1.12  1995/09/29 05:42:18  gray
+ * Fix MS-DOS version for input file specified as full pathname.
+ *
+ * Revision 1.11  1995/08/07  03:21:25  gray
  * Remove support for "/" options in MS-DOS because doesn't work right.
  *
  * Revision 1.10  1995/07/04  23:41:52  gray
@@ -131,6 +134,12 @@ expand_wildcard ( const char* file_spec, COStream out ) {
     (On Unix, this is not needed because expansion is done by the shell.)
  */
 #ifdef MSDOS
+  if ( pathname_name_and_type(file_spec) != file_spec ) {
+    /* expansion works only for a file name, not a path name */
+    cos_puts( out, file_spec );
+    cos_putch( out, '\n' );
+  }
+  else {
 #if defined(_FIND_T_DEFINED)  /* Microsoft C on MS-DOS */
   struct _find_t fblk;
   if ( _dos_findfirst( file_spec, _A_NORMAL|_A_ARCH|_A_RDONLY, &fblk )
@@ -179,6 +188,9 @@ expand_wildcard ( const char* file_spec, COStream out ) {
     cos_puts( out, file_spec );
     cos_putch( out, '\n' );
   }
+#ifdef MSDOS
+ }
+#endif
 }
 
 static char argv_domain_name[] = "ARGV";
