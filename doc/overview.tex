@@ -77,7 +77,7 @@ a pattern file can be one of the following:
 \item An immediate action -- a line beginning with ``\verb/@/'' can
 contain one or more function calls which will be evaluated immediately
 before reading the next line.  Normally these should be functions that
-are used for their side effects and to not return a value.  The most
+are used for their side effects and do not return a value.  The most
 common case is using ``\verb/@set/'' to initialize a variable.
 \item Any other line is expected to be a rule, which should contain a
 ``\verb/=/'' separating the template and action.  A line may contain
@@ -90,9 +90,12 @@ Rules may be preceded by a domain name followed by a colon, which causes
 all of the rules following on the same line to be defined in the
 designated domain.  The domain name may optionally be enclosed in angle
 brackets, and any leading or trailing blanks will be ignored.
+If the domain is to be referenced in an action following ``\verb/@/'', then
+the name should be limited to letters, digits, hyphen, and underscore.
 \item A line of the form ``{\em name1}{\tt ::}{\em name2}'' specifies
 that the domain named on the left inherits from the domain named on the
-right.
+right.  Each domain can inherit from at most one other, but multiple levels
+of inheritance is allowed.
 \end{itemize}
 
 A template may contain any of the following:
@@ -100,13 +103,14 @@ A template may contain any of the following:
 \item Literal characters, which are to be exactly matched.
 Literal characters include letters, digits, special characters quoted by
 a backslash, control characters designated by backslash followed by
-a lower case letter or digit, and control characters designated by
-``\verb/^/'' followed by a letter.
+a lower case letter or digit, control characters designated by
+``\verb/^/'' followed by a letter, and any other characters that don't have
+any special meaning.  Any of the 256 possible characters can be used.
 \item Arguments, which match some variable portion of text, and remember
 the matched text so that it can be referenced later.
 There are several different kinds of arguments, which are denoted by
-``\verb/*/'', ``\verb/?/'', ``\verb/#/'', ``{\tt /}{\em \ldots}{\tt /}'',
-and ``{\tt <}{\em \ldots}{\tt >}''.
+``\verb/*/'', ``\verb/?/'', ``\verb/#/'', ``{\tt <}{\em \ldots}{\tt >}''.
+and ``{\tt /}{\em \ldots}{\tt /}''.
 The current implementation allows a template to have a maximum of twenty
 arguments.
 \item Template operators, denoted by a backslash followed by an upper
@@ -116,7 +120,7 @@ requirements for a match, or allow skipping of redundant spaces in
 the input.
 \item A dollar sign may be used followed by a single letter or digit to
 insert the value of a variable or a previous argument into the text that
-is to be matched.  (This does not work for ``\verb/*/'' arguments.)
+is to be matched.  (This does not currently work for ``\verb/*/'' arguments.)
 \end{itemize}
 
 An action may contain any of the following:
