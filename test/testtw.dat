@@ -19,9 +19,9 @@ hyphenate:?=?
 '-*-'\W*\W'-*-'=\N'** '*' **'\n
 
 fixthis(<fixcontext>)=$1\N
-fixcontext:<ct>\IThis=$1 self
+fixcontext:<ct>\W\IThis=$1 self
 fixcontext:magic=$0
-ct:<I>=$1
+ct:<I>=$1@end
 ct:=@fail
 
 Parenthesize *\n=@parenthesize{*}\n
