@@ -1,6 +1,6 @@
 .\" @(#)gema.1
 .\" $Id$
-.TH GEMA 1 "20 Aug 1995" "version 1.2" " "
+.TH GEMA 1 "31 Mar 1996" "version 1.3" " "
 .SH NAME
 gema \- general purpose macro processor
 .SH SYNOPSIS
@@ -16,11 +16,13 @@ Where \fIoptions\fP is:
 .br
 \fB\-f\fP \fIpattern_file\fP | [\fB\-p\fP] '\fIpatterns\fP' |
 .BR \-b " | " \-i " | " \-k " | "
-.BR \-line " | " \-match " | "  \-trace " | "
+.BR \-line " | " \-match " | "
 .BR \-t " | " \-w " | "
 \fB\-idchars \fP\fIcharset\fP |
 \fB\-filechars \fP\fIcharset\fP |
-\fB\-literal \fP\fIcharset\fP
+\fB\-literal \fP\fIcharset\fP |
+.BR \-trace " | "
+\fB\-arglen \fP\fInum\fP
 .de QX
 "\\fB\\$1\\fP"\\$2
 ..
@@ -70,6 +72,8 @@ output file for each in the designated output directory, with the output
 file suffix optionally specified by the
 .B \-otyp
 option.
+.LP
+.ne 6
 .SH "TUTORIAL EXAMPLES"
 For a simple example, consider first the following command line:
 .br
@@ -129,7 +133,8 @@ at that point.  Thus a template like "\fBx\\W+\\Wy\fP" will match regardless
 of whether the input text contains optional spaces.
 The
 .B \-w
-option may be used to ignore spaces everywhere.
+option may be used to ignore spaces everywhere (except within identifiers
+or numbers).
 .LP
 A template such as "\fBfirst\ down\fP" will not only match these two
 words separated by a space, it will also match if they are separated by
@@ -164,7 +169,7 @@ in the action.  Note though that in
 .BR gema ,
 the comma and parentheses do not have any special meaning; a template
 may delimit the arguments with whatever characters you want.
-There may be as many as nine arguments, and the "\fB*\fP" or "\fB?\fP"
+There may be as many as 20 arguments, and the "\fB*\fP" or "\fB?\fP"
 in the action will be substituted in the same order as in the template.
 In cases where the arguments need to be used in some different order or
 an argument needs to be used more than once, a different notation may be
@@ -181,6 +186,8 @@ treated as literals.  A backslash preceding a special character always
 means that the character is to be taken literally, so it won't hurt to
 escape all special character literals if you aren't sure which ones have
 special meaning.
+(If there are more than nine arguments, the number needs to be enclosed in
+braces, like: "\fB${10}\fP")
 .LP
 One problem to watch out for with "\fB*\fP" arguments is that since
 .B gema
@@ -295,7 +302,7 @@ For example, you can define a default rule like this:
 .QX "\\\\N.*\\\\N=@err{@file line @line\\\\: Unrecognized\\\\: $1}"
 The
 .B err
- function writes its argument to the error output stream.  The
+function writes its argument to the error output stream.  The
 .B file
 and
 .B line
@@ -361,6 +368,7 @@ Then the rule becomes
 and we add a rule:
 .QX "sbody:\\\\\\\\""=\\\\\\\\"""
 .LP
+.ne 6
 .SH OPTIONS
 .LP
 .TP
@@ -567,6 +575,7 @@ current position, and a description of the event, indented for recursive
 arguments. 
 .RE
 .LP
+.ne 6
 .SH "PATTERNS REFERENCE SUMMARY"
 The following characters have special meaning:
 .LP
@@ -639,6 +648,13 @@ regular expression argument (template only)
 .B !
 the rest of the line is a comment
 .LP
+Also, as a special case, the first line of a pattern file is ignored if the
+first two characters are
+.QX #! .
+This allows a pattern file to be made directly executable by putting
+something like "\fB#!/usr/local/bin/gema -f\fP" as the first line.
+.LP
+.ne 6
 .SH "ESCAPE SEQUENCES"
 The backslash character denotes special handling for the character that
 follows it.
@@ -708,7 +724,7 @@ Case-insensitive comparison for the rest of the template
 matches End of file
 .TP
 \fB\eG\fP
-complete preceding argument before considering rest of template
+Goal -- complete preceding argument before considering rest of template
 .TP
 \fB\eI\fP
 Identifier separator
@@ -743,6 +759,7 @@ word separator
 \fB\eZ\fP
 matches end of input data
 .LP
+.ne 6
 .SH RECOGNIZERS
 The following argument designators, consisting of a single letter between
 angle brackets, can be used in templates to match on
@@ -812,6 +829,7 @@ hexadecimal digits
 .B <Y>
 punctuation (graphic characters that are not identifiers)
 .LP
+.ne 6
 .SH FUNCTIONS
 The following built-in functions may be used in actions, either in the
 action portion of a rule, or appearing by itself as an immediate action.
@@ -1162,7 +1180,15 @@ The
 .B gema
 user manual and the example pattern files provided.
 .LP
+All source files and documentation are available by anonymous FTP from
+directory 
+.QX /pub/gema
+at
+.QX ftp.harlequin.com .
+WWW documentation is at URL: 
+.QX ftp://ftp.harlequin.com/pub/gema/www/top.html .
+.LP
 .SH AUTHORS
 .PP
 .B gema
-was written by David N. Gray.
+was written by David N. Gray <DGray@acm.org>.
