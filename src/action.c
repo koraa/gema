@@ -23,14 +23,16 @@ char* wrap_indent = NULL;
 static void
 close_output(const char* pathname);
 
-static void
-put_var( COStream out, const char* name, CIStream default_value ) {
+static boolean
+put_var( COStream out, const char* name, boolean default_value ) {
   size_t length;
   const char* value;
-  value = get_var( name, default_value!=NULL, &length );
-  if ( value != NULL )
+  value = get_var( name, default_value, &length );
+  if ( value != NULL ) {
     cos_put_len(out, value, length);
-  else cos_copy_input_stream(out, default_value);
+    return TRUE;
+  }
+  else return FALSE;
 }
 
 static void
@@ -250,7 +252,74 @@ merge_pathnames( COStream out, boolean just_dir,
     cos_puts(out, p);
   }
 }
+
+static const unsigned char*
+skip_action( const unsigned char* action) {
+  const unsigned char* as;
+  unsigned char ac;
 
+  as = action;
+    for ( ; ; ) {
+      ac = *as++;
+      switch (ac) {
+      case PT_END: return as-1;
+      case PT_SEPARATOR: return as;
+
+      case PT_PUT_ARG:
+      case PT_VAR1:
+      case PT_AUX:
+      case PT_QUOTE:
+	as++;
+
+      case PT_ONE_OPT:
+      case PT_LINE:
+      case PT_MATCHED_TEXT:
+	break;
+
+      case PT_DOMAIN:
+	as = skip_action( as+1 );
+	break;
+      case PT_OP: {
+	int n;
+	for ( n = fnnargs[*as++] ; n > 0 ; n-- ) {
+	  assert ( *as != PT_END );
+	  as = skip_action(as);
+	}
+	break;
+      }
+
+#ifdef PT_ARG_DELIM
+      case PT_ARG_DELIM:
+#endif
+      case PT_WORD_DELIM:
+      case PT_ID_DELIM:
+      case PT_SPACE:
+      case PT_SKIP_WHITE_SPACE:
+	break;
+      default:
+	assert( !is_operator(ac) );
+	break;
+      } /* end switch ac */
+    } /* end for */
+} /* end skip_action */
+
+static const unsigned char*
+do_cmp( int cmp, const unsigned char* start, CIStream* args, COStream out) {
+  const unsigned char* as;
+  as = start;
+  if ( cmp >= 0 ) {
+    as = skip_action(as);
+    if ( cmp > 0 )
+      as = skip_action(as);
+  }
+  as = do_action( as, args, out );
+  if ( cmp <= 0 ) {
+    as = skip_action(as);
+    if ( cmp < 0 )
+      as = skip_action(as);
+  }
+  return as;
+} /* end do_cmp */
 
 const unsigned char*
 do_action( const unsigned char* action, CIStream* args, COStream out) {
@@ -302,7 +371,7 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	char vname[2];
 	vname[0] = *as++;
 	vname[1] = '\0';
-	put_var(out, vname, NULL);
+	put_var(out, vname, FALSE);
 	break;
       }
 
@@ -360,16 +429,14 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 
 	case OP_VAR: {
 	  inbuf = function_operand( &as, args );
-	  put_var(out, cis_whole_string(inbuf), NULL );
+	  put_var(out, cis_whole_string(inbuf), FALSE );
 	  break;
 	}
 	case OP_VAR_DFLT: {
-	  CIStream dbuf = NULL;
-	  inbuf = function_operand( &as, args );
-	  if ( ac == OP_VAR_DFLT )
-	    dbuf = function_operand( &as, args );
-	  put_var(out, cis_whole_string(inbuf), dbuf );
-	  cis_close(dbuf);
+	  inbuf = function_operand( &as, args ); /* variable name */
+	  if ( put_var(out, cis_whole_string(inbuf), TRUE ) )
+	    as = skip_action(as); /* skip default value */
+	  else as = do_action( as, args, out ); /* output default */
 	  break;
 	}
 
@@ -635,38 +702,24 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	case OP_STRI_CMP: {	/* string comparison */
 	  CIStream x = function_operand( &as, args );
 	  CIStream y = function_operand( &as, args );
-	  CIStream lt = function_operand( &as, args );
-	  CIStream eq = function_operand( &as, args );
-	  CIStream gt = function_operand( &as, args );
 	  const char* xs = cis_whole_string(x);
 	  const char* ys = cis_whole_string(y);
-	  CIStream result;
 	  int cmp;
 	  cmp = ac == OP_STRI_CMP ? stricmp(xs, ys) : strcmp(xs, ys);
-	  if ( cmp < 0 )
-	    result = lt;
-	  else if ( cmp == 0 )
-	    result = eq;
-	  else result = gt;
-	  cos_copy_input_stream(out, result);
 	  cis_close(x); cis_close(y);
-	  cis_close(lt); cis_close(eq) ; cis_close(gt);
+	  as = do_cmp( cmp, as, args, out);
 	  break;
 	}
 	case OP_NUM_CMP: {	/* numeric comparison */
 	  long x = numeric_operand( &as, args );
 	  long y = numeric_operand( &as, args );
-	  CIStream lt = function_operand( &as, args );
-	  CIStream eq = function_operand( &as, args );
-	  CIStream gt = function_operand( &as, args );
-	  CIStream result;
+	  int cmp;
 	  if ( x < y )
-	    result = lt;
+	    cmp = -1;
 	  else if ( x == y )
-	    result = eq;
-	  else result = gt;
-	  cos_copy_input_stream(out, result);
-	  cis_close(lt); cis_close(eq) ; cis_close(gt);
+	    cmp = 0;
+	  else cmp = 1;
+	  as = do_cmp( cmp, as, args, out);
 	  break;
 	}
 
@@ -874,13 +927,25 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 
 	case OP_SYNTAX: {
 	  const char* type;
+	  const char* charset;
 	  CIStream val;
 	  inbuf = function_operand( &as, args );
-	  type = cis_whole_string(inbuf);
 	  val = function_operand( &as, args );
-	  if ( type[1] != '\0' || !set_syntax(type[0], cis_whole_string(val)) )
-	    input_error(input_stream, EXS_UNDEF,
-			"Undefined syntax type \"%.99s\"\n", type );
+	  charset = cis_whole_string(val);
+	  for ( type = cis_whole_string(inbuf) ; *type != '\0' ; type++ ) {
+	    const char* chars;
+	    if ( type[1] == '\0' )
+	      chars = charset;
+	    else {
+	      char c[2];
+	      c[0] = *charset++;
+	      c[1] = '\0';
+	      chars = c;
+	    }
+	    if ( !set_syntax(type[0], chars) )
+	      input_error(input_stream, EXS_UNDEF,
+			  "Undefined syntax type \"%.99s\"\n", type );
+	  }
 	  cis_close(val);
 	  break;
 	}
@@ -904,7 +969,7 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	case OP_REPEAT: {
 	  long n = numeric_operand( &as, args );
 	  if ( n <= 0 )
-  	    inbuf = function_operand( &as, args );
+  	    as = skip_action(as);
 	  else {
 	    const unsigned char* start = as;
 	    for ( ; n > 0 ; n-- )
