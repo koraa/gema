@@ -49,6 +49,17 @@ void initialize_syntax(void);
 
 boolean set_syntax( int type, const char* char_set );
 
+#ifdef TRACE
+/* Compile with -DTRACE to enable use of the -trace option */
+extern boolean trace_switch;
+extern int trace_indent;
+struct trace_enter_struct
+{ int level; long line; int column; int ch; int domain; };
+extern struct trace_enter_struct trace_enter;
+#else
+#define trace_switch FALSE
+#endif
+
 #if 0
 #define Arg_Delim '\0'
 #endif
