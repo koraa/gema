@@ -227,6 +227,7 @@ static int find_domain( const char* name ) {
     p->head = NULL;
     p->tail = NULL;
     p->dispatch = NULL;
+    dp->init_and_final_patterns = NULL;
     return i;
   }
 }
@@ -273,6 +274,11 @@ void delete_domain(int n) {
   assert( n < ndomains );
   dp = domains[n];
   delete_patterns( &dp->patterns );
+  while ( dp->init_and_final_patterns != NULL ) {
+    Pattern p = dp->init_and_final_patterns;
+    dp->init_and_final_patterns = p->next;
+    delete_pattern(p);
+  }
   if ( n == ndomains-1 ) {
     ndomains--;
     free((char*)dp->name);
@@ -610,6 +616,7 @@ static struct action_ops {
     { "upcase", OP_UPCASE, 1 },
     { "var", OP_VAR, 1 },
     { "var", OP_VAR_DFLT, 2 },
+    { "version", OP_VERSION, 0 },
     { "wrap", OP_WRAP, 1 },
     { "write", OP_WRITE, 2 },
     { NULL, 0, 0 }
@@ -1660,7 +1667,16 @@ int read_patterns ( CIStream s, const char* default_domain,
   top = find_domain(default_domain);
   domain = top;
   while ( NULL != (pat = read_pattern(s, &domain, top, undef)) ) {
-    install_pattern( pat->pattern, pat, &domains[domain]->patterns );
+    const unsigned char* ps = pat->pattern;
+    if ( ps[0] == PT_AUX && ps[2] == PT_END &&
+  	 ( ps[1] == PTX_INIT || ps[1] == PTX_BEGIN_FILE ||
+	   ps[1] == PTX_FINAL || ps[1] == PTX_END_FILE ) ) {
+      Pattern* opp = &domains[domain]->init_and_final_patterns;
+      while ( *opp != NULL )
+	opp = &(*opp)->next;
+      *opp = pat;
+    }
+    else install_pattern( ps, pat, &domains[domain]->patterns );
    } /* end while */
   input_stream = save_input;
   return top;

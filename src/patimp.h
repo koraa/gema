@@ -130,6 +130,7 @@ enum Operators {
  OP_ABORT,		/* stop immediately */
  OP_HELP,		/* display command usage message */
  OP_REPEAT,		/* repeated execution */
+ OP_VERSION,		/* display program version */
 
 	/* arithmetic: */
  OP_ADD,		/* addition */
@@ -172,6 +173,7 @@ typedef struct pattern_struct * Pattern;
 
 struct domain_struct {
   struct patterns_struct patterns;
+  struct pattern_struct* init_and_final_patterns;
   const char* name;
   Domain inherits;
 };
