@@ -136,6 +136,7 @@ CI "\\N-f\\n*\\n=@set-switch{b;0}@define{@read{*}}@set-switch{b;${.BINARY;0}}\n"
 CI "\\N-p\\n*\\n=@define{*}\n"
    "\\N-<L1>\\n=@set-switch{$1;1}\n"
 CI "\\N-w\\n=@set-switch{w;1}@set-syntax{S;\\s\\t}\n"
+CI "\\N-t\\n=@set-switch{w;1}@set-switch{t;1}\n"
 CI "\\N-b\\n=@set-switch{b;1}@set{.BINARY;1}\n"
 CI "\\N-idchars\\n*\\n=@set-parm{idchars;$1}\n"
 CI "\\N-filechars\\n*\\n=@set-parm{filechars;$1}\n"
@@ -145,10 +146,14 @@ CI "\\N-debug\\n=@set-switch{debug;1}\n"
 #endif
 CI "\\N-line\\n=@set-switch{line;1}\n"
 CI "\\N-match\\n=@set-switch{match;1}\n"
-#ifndef MSDOS
+#ifdef MSDOS
+   "\\N\\/<L1>\\n=@ARGV{-$1\\n}\n"	/* allow "/" instead of "-" */
+#else
 CI "\\N-n\\n=@set-switch{match;1}\n"	/* like for sed */
 CI "\\N-e\\n*\\n=@define{*}\n"		/* like for sed */
 #endif
+CI "\\N-nobackup\\n=@set-parm{backup;}\n"
+CI "\\N-backup\\n<G>\\n=@set-parm{backup;$1}\n"
 CI "\\N-out\\n*\\n=@set{.OUT;$1}\n"
 CI "\\N-in\\n*\\n=@set{.IN;$1}\n"
    "\\N\\L*\\=*\\n=@define{$0}\n"
