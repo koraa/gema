@@ -877,10 +877,6 @@ charop: {
 		  apcode = ap;
 	          *ap++ = tp->code;
 	          fnnargs[tp->code] = tp->nargs;
-	          while ( xc == ' ' ) {
-	            (void)cis_getch(s);
-		    xc = cis_peek(s);
-	          }
 		  if ( char_table[xc] == PI_BEGIN_ARG ) {
 		    (void)cis_getch(s);
 		    for ( ; ; ) {
