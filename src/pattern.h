@@ -34,6 +34,7 @@ extern char* filechars;
 extern int MAX_ARG_LEN;
 
 extern boolean debug_switch;
+extern boolean trace_switch;
 
 extern boolean keep_going;
 
