@@ -171,9 +171,9 @@ Alert (a.k.a. bell) character
 \item[{\tt $\backslash$b}]
 Backspace character
 \item[{\tt $\backslash$c}{\it x}]
-Control key combined with the following character
+Control key combined with the following character.
 For example, ``\verb/\ci/'', ``\verb/\cI/'', ``\verb/^i/'', ``\verb/^I/'',
-and ``\verb/\t/'' are all have the same effect, namely to represent the
+and ``\verb/\t/'' all have the same effect, namely to represent the
 ASCII Tab character.
 \item[{\tt $\backslash$d}]
 Delete character
@@ -221,6 +221,10 @@ If the template is written as ``\verb/a(<T>)\G done/'' then the argument
 will be terminated by the first right parenthesis, and then the match will
 fail if the text following the parenthesis doesn't match ``\verb/ done/''.
 This does not yet work for ``\verb/*/'' arguments.
+
+If ``\verb/\G/'' immediately follows a recursive argument, then there is no
+delimiter, and the the argument will continue to accept characters until it
+stops itself by executing \verb/@end/ or \verb/@terminate/.
 \item[{\tt $\backslash$I}]
 Identifier separator.  In a template, this matches an empty string if it
 is not within an identifier.  In other words, it requires either of the
