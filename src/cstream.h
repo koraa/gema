@@ -48,6 +48,8 @@ void cis_release(CIStream s, MarkBuf* b);
 
 void cis_rewind(CIStream s);
 
+void skip_whitespace( CIStream s );
+
 /* create stream */
 CIStream make_file_input_stream(FILE* f, const char* path);
 CIStream make_string_input_stream(const char* start, size_t length,
