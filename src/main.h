@@ -27,8 +27,8 @@ extern Exit_States exit_status;
 extern const char what_string[];
 #define Version what_string+4
 
-boolean
-set_switch(const char* name, boolean value);
+int*
+find_switch(const char* arg);
 
 boolean
 set_parm(const char* name, const char* value);
