@@ -12,7 +12,11 @@
 
 /*
  * $Log$
- * Revision 1.8  1995/08/06 02:28:55  gray
+ * Revision 1.9  1996/04/08 05:04:50  gray
+ * Fix @wrap to do nothing if the argument is empty, and to not wrap when the
+ * current column is less than the margin.
+ *
+ * Revision 1.8  1995/08/06  02:28:55  gray
  * Ignore implicit "\I" when expanding template as "$0" so that it doesn't
  * introduce spaces that were not present in the original text.
  *
@@ -47,6 +51,7 @@
 
 int wrap_column = 80;
 char* wrap_indent = NULL;
+static unsigned wrap_indent_length = 0;
 
 static void
 close_output(const char* pathname);
@@ -376,8 +381,9 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	CIStream inbuf;
 	Pattern save_rule = current_rule;
 	int domain = *as++ - 1;
-	if ( as[0] == PT_VAR1 ||
-	     ( as[0] == PT_OP && as[1] == OP_VAR ) ) {
+        if ( as[0] == PT_VAR1 ||
+             ( as[0] == PT_OP &&
+	       ( as[1] == OP_VAR || as[1] == OP_VAR_DFLT ) ) ) {
 	  /* for safety, copy the variable's value in case it is
 	     changed during translation.  */
 	  COStream outbuf;
@@ -779,11 +785,12 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	  inbuf = function_operand( &as, args );
 	  length = cis_length(inbuf);
 	  col = cos_column(out);
-	  if ( ((int)(col + length)) > wrap_column || col <= 1 ) {
+	  if ( ( ((int)(col + length)) > wrap_column &&
+		 col > wrap_indent_length ) ||
+	       ( col <= 1 && length > 0 ) ) {
 	    cos_freshline(out);
 	    cos_puts(out, wrap_indent);
-	    while( isspace(cis_peek(inbuf)) )
-	      cis_getch(inbuf);
+	    skip_whitespace(inbuf);
 	  }
 	  cos_copy_input_stream(out, inbuf);
 	  break;
@@ -794,8 +801,9 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
   	  inbuf = function_operand( &as, args );
 	  if ( wrap_indent != NULL )
 	    free(wrap_indent);
+	  wrap_indent_length = cis_length(inbuf);
 	  wrap_indent = str_dup_len( cis_whole_string(inbuf),
-				     cis_length(inbuf) );
+				     wrap_indent_length );
 	  break;
 	}
 
