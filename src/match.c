@@ -11,11 +11,14 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.11  1995/08/06 02:24:31  gray
-/* Fix bug on "\A" (regression in previous version).
-/* Allow "\Z" to match goal string of recursive argument.
-/* Add "<J>" (match lower case) and "<K>" (match upper case).
+/* Revision 1.12  1995/08/07 03:22:39  gray
+/* Fix to not match on "\Z" after "@end" (regression in previous changes).
 /*
+ * Revision 1.11  1995/08/06  02:24:31  gray
+ * Fix bug on "\A" (regression in previous version).
+ * Allow "\Z" to match goal string of recursive argument.
+ * Add "<J>" (match lower case) and "<K>" (match upper case).
+ *
  * Revision 1.10  1995/07/27  05:27:27  gray
  * If template does not advance the input stream, continue looking for the
  * next match instead of repeating the same match.  Fix for "\B" followed by
@@ -888,7 +891,14 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
 	no_match = FALSE;
 	if ( translation_status == Translate_Continue )
 	  translation_status = Translate_Complete;
-	else break;
+	else if ( translation_status == Translate_Complete )
+	  break;
+	else {
+	  boolean result = translation_status != Translate_Failed;
+	  translation_status = save_fail;
+	  input_stream = save_input;
+	  return result;
+	}
       }
   }
   }
