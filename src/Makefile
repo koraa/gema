@@ -25,7 +25,8 @@ acc:
 debug:
 	${MAKE} CC=lcc CCFLAGS="-g -Xa -wucpd" gema
 
-OBJS =  gema.o reg-expr.o var.o util.o read.o match.o cstream.o action.o
+OBJS =  version.o gema.o reg-expr.o var.o util.o read.o match.o \
+	cstream.o action.o
 
 CC = lcc
 CCFLAGS = -XG -O -Xa
@@ -60,3 +61,5 @@ gema.o: gema.c util.h pattern.h main.h bool.h cstream.h
 cstream.o: cstream.c util.h main.h bool.h cstream.h
 
 action.o: action.c patimp.h var.h util.h main.h bool.h cstream.h pattern.h
+
+version.o: version.c
