@@ -12,7 +12,10 @@
 
 /*
  * $Log$
- * Revision 1.6  1995/07/27 02:49:08  gray
+ * Revision 1.7  1995/08/20 05:29:32  gray
+ * Restore missing space in error message.
+ *
+ * Revision 1.6  1995/07/27  02:49:08  gray
  * For Macintosh, new function `get_info_block' in lieu of `stat'.
  *
  * Revision 1.5  1995/07/04  23:39:03  gray
@@ -370,7 +373,7 @@ char probe_pathname(const char* pathname) {
 #ifdef MACOS
     if (get_info_block(pathname)==0) {
       if (myblock.hFileInfo.ioFlAttrib & 16)
-        return 'D'; /* Directory */
+	return 'D'; /* Directory */
       else return 'F';        /* File */
     } else return 'X'; /* Unexpected */
 #else
@@ -480,9 +483,9 @@ void input_error( CIStream s, Exit_States code, const char* format, ... ) {
 		execute the error message as a command, and it takes them to
 		the point in the file where the error occurred.
 		-- D.A.M. 7/21/95 */
-        fprintf(stderr, "File \"%s\"; line %ld # ",
+	fprintf(stderr, "File \"%s\"; line %ld # ",
 #else
-        fprintf(stderr, "File \"%s\" line %ld:",
+	fprintf(stderr, "File \"%s\" line %ld: ",
 #endif
 		pathname_name_and_type(path),
 		cis_line(s) );
