@@ -12,7 +12,10 @@
 
 /*
  * $Log$
- * Revision 1.12  1995/09/29 05:42:18  gray
+ * Revision 1.13  1995/10/01 23:29:44  gray
+ * Fix to support MS-DOS wild card expansion with a full pathname.
+ *
+ * Revision 1.12  1995/09/29  05:42:18  gray
  * Fix MS-DOS version for input file specified as full pathname.
  *
  * Revision 1.11  1995/08/07  03:21:25  gray
@@ -133,34 +136,28 @@ expand_wildcard ( const char* file_spec, COStream out ) {
 /*  Expand wild card file name on MS-DOS.
     (On Unix, this is not needed because expansion is done by the shell.)
  */
-#ifdef MSDOS
-  if ( pathname_name_and_type(file_spec) != file_spec ) {
-    /* expansion works only for a file name, not a path name */
-    cos_puts( out, file_spec );
-    cos_putch( out, '\n' );
-  }
-  else {
+#ifdef MSDOS						       
 #if defined(_FIND_T_DEFINED)  /* Microsoft C on MS-DOS */
   struct _find_t fblk;
   if ( _dos_findfirst( file_spec, _A_NORMAL|_A_ARCH|_A_RDONLY, &fblk )
        == 0 ) {
     /* first match found */
     do {
-      cos_puts( out, fblk.name );
+      merge_pathnames( out, FALSE, file_spec, fblk.name, NULL );
       cos_putch( out, '\n' );
     }
     while ( _dos_findnext( &fblk ) == 0 );
   }
   else
-#elif defined(_WIN32)  /* Microsoft C/C++ on Windows/NT */
+#elif defined(_WIN32)  /* Microsoft C/C++ on Windows NT */
   struct _finddata_t fblk;
   long handle;
   handle = _findfirst( (char*)file_spec, &fblk );
   if ( handle != -1 ) {
     /* first match found */
     do {
-      if ( !(fblk.attrib & _A_SUBDIR) ) {
-	cos_puts( out, fblk.name );
+      if ( !(fblk.attrib & _A_SUBDIR) ) {		   
+	merge_pathnames( out, FALSE, file_spec, fblk.name, NULL );
 	cos_putch( out, '\n' );
       }
     }
@@ -173,7 +170,7 @@ expand_wildcard ( const char* file_spec, COStream out ) {
   if ( findfirst( file_spec, &fblk, FA_ARCH|FA_RDONLY ) == 0 ) {
     /* first match found */
     do {
-      cos_puts( out, fblk.ff_name );
+      merge_pathnames( out, FALSE, file_spec, fblk.ff_name, NULL );
       cos_putch( out, '\n' );
     }
     while ( findnext( &fblk ) == 0 );
@@ -187,10 +184,7 @@ expand_wildcard ( const char* file_spec, COStream out ) {
   {
     cos_puts( out, file_spec );
     cos_putch( out, '\n' );
-  }
-#ifdef MSDOS
- }
-#endif
+  } 
 }
 
 static char argv_domain_name[] = "ARGV";
