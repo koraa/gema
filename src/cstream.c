@@ -12,7 +12,10 @@
 
 /*
  * $Log$
- * Revision 1.7  1995/08/20 05:29:32  gray
+ * Revision 1.8  1995/09/29 04:08:41  gray
+ * Fix to work with "gcc" and SunOS library.
+ *
+ * Revision 1.7  1995/08/20  05:29:32  gray
  * Restore missing space in error message.
  *
  * Revision 1.6  1995/07/27  02:49:08  gray
@@ -45,6 +48,13 @@
 /* for the `stat' struct: */
 #include <sys/types.h>
 #include <sys/stat.h>
+#endif
+
+#ifndef SEEK_SET
+/* hack for pre-ANSI header files */
+#define SEEK_SET 0
+/* hack for pre-ANSI library (such as "gcc" with SunOS library) */
+#define memmove memcpy
 #endif
 
 static void
@@ -714,7 +724,7 @@ open_output_file( const char* pathname, boolean binary )
     COStream outbuf;
     const char* backup_pathname;
     outbuf = make_buffer_output_stream();
-#ifdef unix
+#if defined(unix) | defined(__unix__) | defined(__unix)
     /* on Unix, append ".bak" to the file name */
     cos_puts(outbuf,pathname);
     cos_puts(outbuf,backup_suffix);
