@@ -35,16 +35,19 @@ clean:
 	rm -f ${OBJS} gema 
 
 .c.o:
-	${CC} -c ${CCFLAGS} $<
+	${CC} -c -DTRACE ${CCFLAGS} $<
 
 gema: ${OBJS}
 	${CC} ${CCFLAGS} -o gema ${OBJS}
 
-install: ${INSTALLDIR}/bin/gema
+install: ${INSTALLDIR}/bin/gema ${INSTALLDIR}/man/man1/gema.1
 
 ${INSTALLDIR}/bin/gema: gema
-	cp gema ${INSTALLDIR}/bin/gema
-	strip ${INSTALLDIR}/bin/gema
+	cp gema $@
+	strip $@
+
+${INSTALLDIR}/man/man1/gema.1: ../doc/gema.1
+	cp ../doc/gema.1 $@
 
 reg-expr.o: reg-expr.c reg-expr.h
 
