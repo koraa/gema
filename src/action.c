@@ -12,7 +12,11 @@
 
 /*
  * $Log$
- * Revision 1.7  1995/07/04 23:36:22  gray
+ * Revision 1.8  1995/08/06 02:28:55  gray
+ * Ignore implicit "\I" when expanding template as "$0" so that it doesn't
+ * introduce spaces that were not present in the original text.
+ *
+ * Revision 1.7  1995/07/04  23:36:22  gray
  * Use separate segment on Macintosh --
  * from David A. Mundie <mundie@telerama.lm.com>
  *
@@ -1038,14 +1042,16 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
       } /* end PT_OP */
 
       case PT_WORD_DELIM:
-      case PT_ID_DELIM: {
-	/* output a space if needed as a delimiter */
-	int prevch = cos_prevch(out);
-	if ( prevch != EOF )
-	  if ( ac == PT_ID_DELIM ? isident(prevch) : isalnum(prevch) )
-	    cos_putch(out,' ');
+      case PT_ID_DELIM:
+	/* Ignore if in expansion of "$0" */
+	if ( current_rule == NULL || action != current_rule->pattern ) {
+	  /* output a space if needed as a delimiter */
+	  int prevch = cos_prevch(out);
+	  if ( prevch != EOF )
+	    if ( ac == PT_ID_DELIM ? isident(prevch) : isalnum(prevch) )
+	      cos_putch(out,' ');
+	}
 	break;
-      }
 #if 0   /* not needed now */
       case PT_ARG_DELIM:
 	if ( cos_prevch(out) != Arg_Delim )
