@@ -11,9 +11,12 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.12  1995/08/07 03:22:39  gray
-/* Fix to not match on "\Z" after "@end" (regression in previous changes).
+/* Revision 1.13  1995/08/13 05:33:35  gray
+/* Fix regression on "*" at end of template.
 /*
+ * Revision 1.12  1995/08/07  03:22:39  gray
+ * Fix to not match on "\Z" after "@end" (regression in previous changes).
+ *
  * Revision 1.11  1995/08/06  02:24:31  gray
  * Fix bug on "\A" (regression in previous version).
  * Allow "\Z" to match goal string of recursive argument.
@@ -261,6 +264,8 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	if ( try_pattern( in, ps+1, next_arg+1, all_args,
 			  (local_options | (MatchArgDelim|MatchSwallow)),
 			  goal ) &&
+	     /* (the simpler test is being done second only because it is
+		 the much less common case.) */
 	     ps[1] != PT_END ) {
 	  next_arg[0] = convert_output_to_input(outbuf);
 	  goto success;
@@ -719,7 +724,7 @@ again:
   if ( !marker.marked && ( options & MatchSwallow ) &&
        next_arg == all_args &&
        translation_status == Translate_Complete && 
-       patstring[0] != PT_ONE_OPT )
+       patstring[0] != PT_ONE_OPT && patstring[0] != PT_MATCH_ANY )
     /* matched without advancing the input stream */
     translation_status = Translate_Continue;
  quit:
