@@ -204,11 +204,13 @@ char* trim_name( unsigned char* x ) {
   s = x;
   while ( isspace(s[0]) || s[0] == PT_SPACE || s[0] == PT_ID_DELIM )
     s++;
+  if ( s[0] != PT_RECUR ) {
   end = s + strlen((const char*)s);
   while ( end > s &&
 	( isspace(end[-1]) || end[-1] == PT_SPACE || end[-1] == PT_ID_DELIM ) )
     end--;
   end[0] = '\0';
+  }
   return (char*)s;
 }
 
@@ -607,6 +609,7 @@ static struct action_ops {
     { "fill-right", OP_FILL_RIGHT, 2 },
     { "getenv", OP_GETENV, 1 },
     { "getenv", OP_GETENV_DEFAULT, 2 },
+    { "get-switch", OP_GET_SWITCH, 1 },
     { "incr", OP_INCR, 1 },
     { "inpath", OP_PATH, 0 },
     { "int-char", OP_INTCHAR, 1 },
@@ -621,6 +624,7 @@ static struct action_ops {
     { "or", OP_OR, 2 },
     { "out", OP_OUT, 1},
     { "outpath", OP_OUTFILE, 0 },
+    { "out-column", OP_OUTCOL, 0 },
     { "push", OP_BIND, 2 },
     { "pop", OP_UNBIND, 1 },
     { "probe", OP_PROBE, 1 },
