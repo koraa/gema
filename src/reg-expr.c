@@ -228,10 +228,9 @@ static CHAR bittab[BITBLK];	/* bit table for SET */
 
 static void chset(c)  CHAR c; { CHSET(bittab,c); }
 
-static char *dummy_tmp = 
-"The buffer provided to store the compiled DFA is too small.";
-CHAR *regexp_dfa_buffer_too_short = (CHAR *) &(dummy_tmp[0]);
-#define DFA_SHORT dummy_tmp
+CHAR *regexp_dfa_buffer_too_short = 
+  (CHAR *) "The buffer provided to store the compiled DFA is too small.";
+#define DFA_SHORT ((char *) regexp_dfa_buffer_too_short)
 
 #define badpat(msg) return (*dfa = END, (CHAR *)((dfa_short)?(DFA_SHORT):msg))
 #define CHECK_RETURN() return ((CHAR *)((dfa_short)?(DFA_SHORT):NULL))
