@@ -14,6 +14,8 @@
 boolean case_insensitive = FALSE;
 boolean ignore_whitespace = FALSE;
 
+int MAX_ARG_LEN = 4096;
+
 int arg_char;
 
 CIStream input_stream = NULL; /* used only for error message location */
@@ -122,6 +124,8 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
       const unsigned char* use_goal;
       if ( next_arg == NULL ) /* matching only up to first argument */
 	goto success;
+      assert( next_arg[0] == NULL );
+      next_arg[1] = NULL;
       outbuf = make_buffer_output_stream();
       use_goal = NULL;
       if ( ps[1] == PT_END )
@@ -168,29 +172,34 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
       goto failure;
     } /* end PT_MATCH_ANY */
 
-    case PT_ONE_OPT:
-    case PT_MATCH_ONE: {
+    case PT_MATCH_ONE: {  /* "?" argument (general case) */
+      char str[2];
       if ( next_arg == NULL ) /* matching only up to first argument */
 	goto success;
       ic = getch_marked(&marker);
       if ( ic == EOF || ( ic == '\n' && (local_options & MatchLine) ) )
 	goto failure;
-      if ( pc == PT_ONE_OPT )
-	arg_char = ic;
-      else {
-	COStream outbuf;
-	outbuf = make_buffer_output_stream();
-	cos_putch(outbuf, (char)ic);
-	*next_arg++ = convert_output_to_input(outbuf);
-      }
+      str[0] = ic;
+      str[1] = '\0';
+      *next_arg++ = make_string_input_stream(str, 1, TRUE);
+      *next_arg = NULL;
       break;
     } /* end PT_MATCH_ONE */
+
+    case PT_ONE_OPT: {  /* "?" argument (optimized special case) */
+      assert( next_arg != NULL );
+      arg_char = cis_getch(in);
+      if ( arg_char == EOF )
+	goto failure;
+      break;
+    } /* end PT_ONE_OPT */
 
     case PT_RECUR: { /* argument recursively translated */
       COStream outbuf;
       int domain;
       if ( next_arg == NULL ) /* matching only up to first argument */
 	goto success;
+      assert( next_arg[0] == NULL );
       outbuf = make_buffer_output_stream();
       domain = *++ps - 1;
       if ( !marker.marked ) {
@@ -198,8 +207,10 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	marker.marked = TRUE;
       }
       if ( translate ( in, domains[domain], outbuf,
-		       ( ps[1]==PT_END? goal : ps+1 ) ) )
+		       ( ps[1]==PT_END? goal : ps+1 ) ) ) {
 	*next_arg++ = convert_output_to_input( outbuf );
+	*next_arg = NULL;
+	}
       else {
 	cos_close(outbuf);
 	goto failure;
@@ -315,8 +326,10 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
       	goto failure;
       }
       else {
-	if ( next_arg != NULL )
+	if ( next_arg != NULL ) {
 	  *next_arg++ = convert_output_to_input(outbuf);
+	  *next_arg = NULL;
+	}
 	break;
       }
     } /* end PT_SPECIAL_ARG */
@@ -326,7 +339,8 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
        value = match_regexp ( in, *++ps -1 );
        if ( value == NULL )
 	 goto failure;
-       else *next_arg++ = value;
+       *next_arg++ = value;
+       *next_arg = NULL;
        break;
     }
 
@@ -549,21 +563,20 @@ Pattern current_rule = NULL;
 static boolean
 try_match( CIStream in, Pattern pat, COStream out, const unsigned char* goal )
 {
-  CIStream args[MAX_ARG_NUM];
-  int argn;
   boolean result;
   varp varmark;
-  const unsigned char* as;
+  CIStream args[MAX_ARG_NUM+1];
 
-  for ( argn = MAX_ARG_NUM-1 ; argn >= 0 ; argn-- )
-    args[argn] = NULL;
+  args[0] = NULL;
   varmark = first_bound_var;
   if ( ! try_pattern( in, pat->pattern, &args[0], &args[0],
 		      global_options, goal ) ) {
-    prune_vars(varmark); /* undo variables bound within failed match */
+    if ( varmark != first_bound_var )
+      prune_vars(varmark); /* undo variables bound within failed match */
     result = FALSE;
   }
   else {
+    const unsigned char* as;
     enum Translation_Status save = translation_status;
     translation_status = Translate_Complete;
     /* pattern matches, so perform the specified action. */
@@ -574,8 +587,10 @@ try_match( CIStream in, Pattern pat, COStream out, const unsigned char* goal )
     if ( translation_status == Translate_Complete )
       translation_status = save;
   }
-  for ( argn = MAX_ARG_NUM-1 ; argn >= 0 ; argn-- ) {
-    cis_close(args[argn]);
+  {
+    CIStream * argp;
+    for ( argp = &args[0] ; *argp != NULL ; argp++ )
+      cis_close(*argp); /* de-allocate argument buffer */
   }
   return result;
 }
@@ -643,7 +658,8 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
   boolean discard = FALSE;
 
   save_input = input_stream;
-  if ( cis_pathname(in) != NULL )
+  if ( save_input == NULL || cis_pathname(in) != NULL ||
+       ( cis_is_file(in) && ! cis_is_file(save_input) ) )
     input_stream = in;
   for ( ; domains_checked < ndomains ; domains_checked++ ) {
     Domain dp = domains[domains_checked];
