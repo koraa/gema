@@ -11,10 +11,16 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.15  1995/08/20 05:34:40  gray
-/* Treat variable in template as literal for argument terminator.
-/* Fix to not free patterns installed in multiple places.
+/* Revision 1.16  1995/08/27 21:03:46  gray
+/* Fix handling of space between identifiers with "-t" or "-w".
+/* Fix to not be prevented from using dispatch table when template begins with
+/* "\I" or when upper/lower case difference for key.
 /*
+ * Revision 1.15  1995/08/20  05:34:40  gray
+ * Treat variable in template as literal for argument terminator.
+ * Fix to not free patterns installed in multiple places.
+ * Fix bug in dispatch table setup.
+ *
  * Revision 1.14  1995/08/13  05:35:49  gray
  * New macro `char_kind' to ensure uniform handling of EOF -- fixes crash on
  * EOF at end of inherited domain rule.
@@ -1406,7 +1412,8 @@ dispatch:
 	int nextch;
       	while ( char_kind(nextch = cis_peek(s)) == PI_IGNORED_SPACE )
 	  (void)cis_getch(s);
-	if ( !( isident(*prev_bp) && isident(nextch) ) ) {
+	if ( !( ( *prev_bp == PT_ID_DELIM || isident(*prev_bp) ) &&
+		isident(nextch) ) ) {
 	  if ( char_kind(nextch) != PI_LITERAL &&
 	       *prev_bp != PT_SKIP_WHITE_SPACE) {
 	    pc = PT_SKIP_WHITE_SPACE;
@@ -1434,13 +1441,15 @@ dispatch:
     case PI_ARG_SEP:   /* not special in this context */
     case PI_LITERAL:
        if ( token_mode && isident(ch) ) {
+	 enum char_kinds peek_kind;
        	 if ( is_operator(*prev_bp) && *prev_bp != PT_ID_DELIM ) {
 	   if ( prev_bp[0] == PT_AUX && prev_bp[1] == PTX_JOIN )
 	     bp = prev_bp;
 	   else *bp++ = PT_ID_DELIM;
 	   start_bp = bp;
     	   }
-	if ( char_kind(cis_peek(s)) != PI_LITERAL ) {
+	 peek_kind = char_kind(cis_peek(s));
+	 if ( peek_kind != PI_LITERAL && peek_kind != PI_SPACE ) {
 	  *bp++ = ch;
 	  start_bp = bp;
 	  pc = PT_ID_DELIM;
@@ -1570,12 +1579,10 @@ again:
 	break;
       case PT_ID_DELIM:
       case PT_WORD_DELIM:
-	if ( for_goal ) {
-	  *ap = a;
-	  result = get_template_element(ap,TRUE);
-	  if ( result != ENDOP )
-	    return result;
-	}
+	*ap = a;
+	result = get_template_element(ap,for_goal);
+	if ( result != ENDOP )
+	  return result;
 	result = UPOP(ch);
 	break;
       case PT_SKIP_WHITE_SPACE:
@@ -1761,11 +1768,13 @@ install_pattern_for_key( unsigned char key, const unsigned char* rest,
     sub->tail = NULL;
     while ( old != NULL ) {
       Pattern next;
+      unsigned op;
       const unsigned char* old_template;
       next = old->next;
       old->next = NULL;
       old_template = old->pattern;
-      if ( get_template_element(&old_template,FALSE) == key )
+      op = get_template_element(&old_template,FALSE);
+      if ( op == key || ( op < 0xFF && toupper(op) == toupper(key) ) )
 	install_pattern( old_template, old, sub );
       else chain_pattern( old, sub, key );
       old = next;
