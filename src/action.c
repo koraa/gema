@@ -12,7 +12,10 @@
 
 /*
  * $Log$
- * Revision 1.9  1996/04/08 05:04:50  gray
+ * Revision 1.10  2001/12/15 20:21:06  gray
+ * Clean up compiler warnings.
+ *
+ * Revision 1.9  1996/04/08  05:04:50  gray
  * Fix @wrap to do nothing if the argument is empty, and to not wrap when the
  * current column is less than the margin.
  *
@@ -701,6 +704,7 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	    case OP_OR:  z = x | y; break;
 	    default: /* can't happen; just to avoid compiler warning */
 	      assert(FALSE);
+	      z = 0;
 	      break;
 	  }
 	  put_number(out,z);
@@ -1085,4 +1089,6 @@ do_action( const unsigned char* action, CIStream* args, COStream out) {
 	cos_putch(out, ac);
       } /* end switch ac */
     } /* end for */
+  /* can't ever get here, but return to avoid Gnu compiler warning. */
+  return as;
 }

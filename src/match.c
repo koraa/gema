@@ -11,17 +11,20 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.17  1996/04/08 05:23:04  gray
-/* Use new `goal_state' structure to pass additional context information for
-/* goal match; this allows access to previous arguments and the correct local
-/* mode for case sensitivity.  New function `match_to_stream' combines common
-/* code for matching on variables and previous arguments; fixed to respect
-/* case-insensitive option.  Also support case-insensitive comparison for the
-/* terminator of a recognizer or recursive argument.  Don't automatically skip
-/* whitespace at the beginning of a template.  For domain with default rule
-/* ``=@fail'', don't match an empty string if delimiter found immediately.
-/* Minor improvement of trace messages.
+/* Revision 1.18  2001/12/15 20:22:23  gray
+/* Clean up compiler warnings.
 /*
+ * Revision 1.17  1996/04/08  05:23:04  gray
+ * Use new `goal_state' structure to pass additional context information for
+ * goal match; this allows access to previous arguments and the correct local
+ * mode for case sensitivity.  New function `match_to_stream' combines common
+ * code for matching on variables and previous arguments; fixed to respect
+ * case-insensitive option.  Also support case-insensitive comparison for the
+ * terminator of a recognizer or recursive argument.  Don't automatically skip
+ * whitespace at the beginning of a template.  For domain with default rule
+ * ``=@fail'', don't match an empty string if delimiter found immediately.
+ * Minor improvement of trace messages.
+ *
  * Revision 1.16  1995/09/29  04:09:44  gray
  * Fix `trace' format on MS-DOS.
  *
@@ -983,6 +986,7 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
   if ( goal_info == NULL ) {
     goal = NULL;
     goal_char = ENDOP;
+    alt_goal_char = ENDOP; /* just to avoid warning from Gnu compiler */
   }
   else {
     goal = goal_info->template;
