@@ -11,11 +11,15 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.13  1995/08/06 02:26:47  gray
-/* Fix bug on "\A" (regression in previous version).
-/* Add "<J>" (match lower case) and "<K>" (match upper case).
-/* Support @set-syntax{M;\'} for quoting a string.
+/* Revision 1.14  1995/08/13 05:35:49  gray
+/* New macro `char_kind' to ensure uniform handling of EOF -- fixes crash on
+/* EOF at end of inherited domain rule.
 /*
+ * Revision 1.13  1995/08/06  02:26:47  gray
+ * Fix bug on "\A" (regression in previous version).
+ * Add "<J>" (match lower case) and "<K>" (match upper case).
+ * Support @set-syntax{M;\'} for quoting a string.
+ *
  * Revision 1.12  1995/07/27  05:31:34  gray
  * Fix a couple of problems with spaces with "-w".
  *
@@ -93,7 +97,10 @@ static unsigned char default_syntax_chars[Num_Char_Kinds+1] =
 		 ".\1\r*?#=$\\\\^ {;};:<>//@@!\0\0\0\0\0";
 static unsigned char syntax_chars[Num_Char_Kinds+1];
 
-static char char_table[NUMCHAR] = {
+static char char_table[NUMCHAR+1] = {
+#if EOF == (-1)
+ /* -1: */ PI_EOF,
+#endif
  /* 00: */ PI_LIT_CTRL,
  /* 01: */ PI_LIT_CTRL,
  /* 02: */ PI_LIT_CTRL,
@@ -132,21 +139,34 @@ static char char_table[NUMCHAR] = {
  /* 1F: */ PI_LIT_CTRL,
  /* 20: */ PI_LITERAL };
 
+#if EOF == (-1)
+#define char_kind(ch) ((enum char_kinds)(char_table[(ch)+1]))
+#define set_char_kind(ch,k) char_table[(ch)+1] = (k)
+#else
+/* I don't know of any implementation where EOF is not -1, but the ANSI
+   standard does not require it. */
+static enum char_kinds
+char_kind(int ch){
+  return ( ch == EOF ? PI_EOF : (enum char_kinds) char_table[ch] );
+}
+#define set_char_kind(ch,k) char_table[ch] = (k)
+#endif
+
 void initialize_syntax(void) {
   int i;
   memcpy(syntax_chars, default_syntax_chars, sizeof(syntax_chars));
   for ( i = 0x20 ; i < NUMCHAR ; i++ )
-    char_table[i] = PI_LITERAL;
-  char_table['\n'] = PI_END;
+    set_char_kind(i,PI_LITERAL);
+  set_char_kind('\n',PI_END);
   for ( i = 0 ; i < Num_Char_Kinds ; i++ ) {
     unsigned int ch = syntax_chars[i];
     if ( ch != '\0' )
-      char_table[ch] = i;
+      set_char_kind(ch,i);
   }
 }
 
 boolean is_operator(int x) {
-  return char_table[x] == PI_LIT_CTRL;
+  return char_kind(x) == PI_LIT_CTRL;
 }
 
 static enum char_kinds
@@ -176,7 +196,7 @@ boolean set_syntax( int type, const char* char_set ) {
     case 'D': k = PI_ABBREV_DOMAIN; break;
     case 'K': k = PI_CHAR_OP; break;
     default:
-       k = char_table[type];
+       k = char_kind(type);
        if ( k <= PI_LIT_CTRL ) {
 	 k = default_char_kind(type);
 	   if ( k <= PI_LIT_CTRL )
@@ -186,10 +206,10 @@ boolean set_syntax( int type, const char* char_set ) {
   } /* end switch */
   for ( s = char_set ; s[0] != '\0' ; s++ ) {
     unsigned int ch = *(const unsigned char*)s;
-    unsigned char* scp = &syntax_chars[ char_table[ch] ];
+    unsigned char* scp = &syntax_chars[ char_kind(ch) ];
     if ( *scp == ch )
       *scp = '\0';
-    char_table[ch] = k;
+    set_char_kind(ch,k);
     syntax_chars[k] = ch;
   }
   return TRUE;
@@ -332,9 +352,9 @@ void quoted_copy( CIStream in, COStream out ) {
   int quote = (int)syntax_chars[PI_QUOTE];
   for ( ; ; ) {
   	qc = cis_getch(in);
-  	if ( qc == EOF )
-  	  break;
-  	if ( char_table[qc] != PI_LITERAL ) {
+  	if ( char_kind(qc) != PI_LITERAL ) {
+	  if ( qc == EOF )
+	    break;
   	  cos_putch(out, quote);
 	  if ( qc == '\n' )
 	    qc = 'n';
@@ -387,7 +407,7 @@ void pattern_help( FILE* f ) {
   }
 #else
   for ( i = 0 ; i < NUMCHAR ; i++ ) {
-    int kind = char_table[i];
+    enum char_kinds kind = char_kind(i);
     if ( kind > PI_CR && isgraph(i) ) {
       fputc( i, f );
       fputc( ' ', f );
@@ -403,7 +423,7 @@ escaped_char( int ch, unsigned char* bp, CIStream s ) {
       int pc;
 
       nc = cis_getch(s);
-      if ( syntax_chars[PI_ESC] != ch && char_table[ch] == PI_QUOTE )
+      if ( syntax_chars[PI_ESC] != ch && char_kind(ch) == PI_QUOTE )
 	pc = nc;
       else
       switch(nc) {
@@ -733,7 +753,7 @@ read_put( CIStream s, unsigned char** app, int nargs,
     *ap++ = PT_VAR1;
     pc = ch;
   }
-  else if ( char_table[ch] == PI_BEGIN_ARG && arg_keys != NULL ) {
+  else if ( char_kind(ch) == PI_BEGIN_ARG && arg_keys != NULL ) {
 	/* "${varname}" */
     int xc;
     unsigned char* ap1;
@@ -743,7 +763,7 @@ read_put( CIStream s, unsigned char** app, int nargs,
     ap = read_action( s, ap,  nargs, arg_keys );
     pc = PT_SEPARATOR;
     xc = cis_prevch(s);
-    if ( xc == syntax_chars[PI_ARG_SEP] || char_table[xc] == PI_ARG_SEP ) {
+    if ( xc == syntax_chars[PI_ARG_SEP] || char_kind(xc) == PI_ARG_SEP ) {
       (*app)[1] = OP_VAR_DFLT;
       *ap++ = PT_SEPARATOR;
       ap = read_action( s, ap,  nargs, arg_keys );
@@ -761,7 +781,7 @@ read_put( CIStream s, unsigned char** app, int nargs,
 	pc = n;
       }
     }
-    if ( char_table[xc] != PI_END_ARG )
+    if ( char_kind(xc) != PI_END_ARG )
       input_error(s, EXS_SYNTAX, "Missing \"%c\" for \"%c%c\"\n",
 		  syntax_chars[PI_END_ARG], syntax_chars[PI_PUT],
   		  syntax_chars[PI_BEGIN_ARG]);
@@ -788,9 +808,7 @@ read_action( CIStream s, unsigned char* bp, int nargs,
   enum char_kinds kind;
     for ( ap = bp ; ; ) {
       ch = cis_getch(s);
-      if ( ch == EOF )
-	kind = PI_EOF;
-      else kind = (enum char_kinds) char_table[ch];
+      kind = char_kind(ch);
 dispatch:
       switch ( kind ) {
       case PI_COMMENT: /* ignore rest of line */
@@ -861,7 +879,7 @@ charop: {
 	      const struct action_ops * tp;
 	      char* name;
 	      if ( xp == ap+1 && ch == syntax_chars[PI_CHAR_OP] &&
-	           char_table[xc] != PI_BEGIN_ARG )
+	           char_kind(xc) != PI_BEGIN_ARG )
 		goto charop;
 	      *xp = '\0';
 	      name = trim_name(ap+1);
@@ -871,14 +889,14 @@ charop: {
 		  int domain = find_domain(name);
 	          *ap++ = PT_DOMAIN;
 		  *ap++ = (unsigned char)(domain + 1);
-		  if ( char_table[xc] == PI_BEGIN_ARG ) {
+		  if ( char_kind(xc) == PI_BEGIN_ARG ) {
 		    int term_kind;
 		    int term_char;
 		    (void)cis_getch(s);
 		read_arg:
 		    ap = read_action( s, ap,  nargs, arg_keys );
 		    term_char = cis_prevch(s);
-		    term_kind = char_table[term_char];
+		    term_kind = char_kind(term_char);
 		    if ( term_kind != PI_END_ARG ) {
 		      if ( term_kind == PI_ARG_SEP ||
 			   term_char == syntax_chars[PI_ARG_SEP] ) {
@@ -915,7 +933,7 @@ charop: {
 		  apcode = ap;
 	          *ap++ = tp->code;
 	          fnnargs[tp->code] = tp->nargs;
-		  if ( char_table[xc] == PI_BEGIN_ARG ) {
+		  if ( char_kind(xc) == PI_BEGIN_ARG ) {
 		    (void)cis_getch(s);
 		    for ( ; ; ) {
 		      ap = read_action( s, ap,  nargs, arg_keys );
@@ -923,8 +941,8 @@ charop: {
 		      n++;
 		      xc = cis_prevch(s);
 		      if ( xc != syntax_chars[PI_ARG_SEP] &&
-		    	   char_table[xc] != PI_ARG_SEP ) {
-			if ( char_table[xc] != PI_END_ARG )
+		    	   char_kind(xc) != PI_ARG_SEP ) {
+			if ( char_kind(xc) != PI_END_ARG )
 		      	  input_error(s, EXS_SYNTAX,
 		      		"Missing \"%c\" for \"%c%s%c\"\n",
 				syntax_chars[PI_END_ARG], ch, tp->name,
@@ -970,7 +988,7 @@ charop: {
 	} /* end PI_OP */
 
       case PI_IGNORED_SPACE:
-      	while ( char_table[cis_peek(s)] == PI_IGNORED_SPACE )
+      	while ( char_kind(cis_peek(s)) == PI_IGNORED_SPACE )
 	  (void)cis_getch(s);
 	if ( ap > bp && isident(ap[-1]) && isident(cis_peek(s)) )
 	  pc = ' ';
@@ -1066,7 +1084,7 @@ read_actions( CIStream s, unsigned char* pbuf, int nargs,
     int prevch;
     ap = read_action(s,pbuf,nargs,arg_keys);
     prevch = cis_prevch(s);
-    while ( char_table[prevch] == PI_END_ARG && cis_peek(s) != EOF ) {
+    while ( char_kind(prevch) == PI_END_ARG && cis_peek(s) != EOF ) {
       input_error(s, EXS_SYNTAX, "Extraneous '%c'\n", prevch);
       *ap++ = prevch;
       ap = read_action(s,ap,nargs,arg_keys);
@@ -1105,7 +1123,7 @@ top:
   if ( cis_peek(s) == '\f' )
     (void)cis_getch(s);
 
-  while ( char_table[cis_peek(s)] == PI_OP ) { /* immediate action */
+  while ( char_kind(cis_peek(s)) == PI_OP ) { /* immediate action */
       (void)read_actions(s,pbuf,0,NULL);
       do_action( pbuf, NULL, output_stream);
     }
@@ -1115,7 +1133,7 @@ top:
     prev_bp = start_bp;
     start_bp = bp;
     ch = cis_getch(s);
-    kind = ch == EOF? PI_EOF : (enum char_kinds)char_table[ch];
+    kind = char_kind(ch);
 dispatch:
     switch (kind) {
     case PI_COMMENT: /* ignore rest of line */
@@ -1156,9 +1174,8 @@ dispatch:
 	  Domain dp = domains[*domainpt];
 
 	  for ( xp = bp ; ; xp++ ) {
-	    enum char_kinds xc;
-	    xc = char_table[cis_peek(s)];
-	    if ( xc == PI_END || xc == PI_COMMENT )
+	    enum char_kinds xc = char_kind(cis_peek(s));
+	    if ( xc == PI_END || xc == PI_COMMENT || xc == PI_EOF )
 	      break;
 	    else *xp = cis_getch(s);
 	  }
@@ -1247,7 +1264,7 @@ dispatch:
 	  for ( xp = bp ; ; xp++ ) {
 	    enum char_kinds xk;
 	    xc = cis_getch(s);
-	    xk = char_table[xc];
+	    xk = char_kind(xc);
 	    if ( xk == PI_END_DOMAIN_ARG ||
 		 syntax_chars[PI_END_DOMAIN_ARG] == xc ||
 		 ( xk == PI_CHAR_OP &&
@@ -1312,8 +1329,8 @@ dispatch:
 	    }
 	    else {
 	    if ( syntax_chars[PI_END_REGEXP] == xc ||
-	    	 char_table[xc] == PI_END_REGEXP ||
-		 ( char_table[xc] == PI_CHAR_OP &&
+	    	 char_kind(xc) == PI_END_REGEXP ||
+		 ( char_kind(xc) == PI_CHAR_OP &&
 		   cis_peek(s) == (int)default_syntax_chars[PI_END_REGEXP] &&
 		   cis_getch(s) ) ) {
 	        *xp = '\0';
@@ -1381,11 +1398,11 @@ dispatch:
       continue;
 
     case PI_IGNORED_SPACE: {
-        int nextch;
-      	while ( char_table[nextch = cis_peek(s)] == PI_IGNORED_SPACE )
+	int nextch;
+      	while ( char_kind(nextch = cis_peek(s)) == PI_IGNORED_SPACE )
 	  (void)cis_getch(s);
 	if ( !( isident(*prev_bp) && isident(nextch) ) ) {
-	  if ( char_table[nextch] != PI_LITERAL &&
+	  if ( char_kind(nextch) != PI_LITERAL &&
 	       *prev_bp != PT_SKIP_WHITE_SPACE) {
 	    pc = PT_SKIP_WHITE_SPACE;
 	    break;
@@ -1418,7 +1435,7 @@ dispatch:
 	   else *bp++ = PT_ID_DELIM;
 	   start_bp = bp;
     	   }
-	if ( char_table[cis_peek(s)] != PI_LITERAL ) {
+	if ( char_kind(cis_peek(s)) != PI_LITERAL ) {
 	  *bp++ = ch;
 	  start_bp = bp;
 	  pc = PT_ID_DELIM;
