@@ -10,6 +10,27 @@
   an acknowledgment of the original source.
  *********************************************************************/
 
+/* $Log$
+/* Revision 1.10  1995/07/27 05:27:27  gray
+/* If template does not advance the input stream, continue looking for the
+/* next match instead of repeating the same match.  Fix for "\B" followed by
+/* argument instead of literal.  Extend `filechars' for Macintosh.
+/*
+ * Revision 1.9 1995/06/18 23:20:21 gray
+ * Some refinement of trace.
+ *
+ * Revision 1.8 1995/06/12 03:03:57 gray
+ * Added experimental trace option.
+ * Fix to not skip whitespace when testing for delimiter of a "*" argument.
+ *
+ * Revision 1.7 1995/05/22 02:51:31 gray
+ * A goal of "\S" should not terminate a predefined-recognizer that has not
+ * yet accepted any characters and is not optional.
+ *
+ * Revision 1.6 1995/05/08 03:19:05 gray
+ * Fixed memory leak on failed "*" argument in line mode.
+ */
+
 #include "pattern.h"
 #include "util.h"
 #include "patimp.h"
@@ -31,8 +52,17 @@ enum Translation_Status translation_status;
 
 char* idchars = "_";
 char* filechars = "./-_~#@%+="
-#ifdef MSDOS
+#if defined(MSDOS)
 		":\\"
+#elif defined(MACOS)
+  "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89"
+  "\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b"
+  "\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad"
+  "\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf"
+  "\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1"
+  "\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3"
+  "\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5"
+  "\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff"
 #endif
 		;
 
@@ -454,7 +484,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 
     case PT_PUT_ARG: { /* match against value of previous argument */
 	CIStream arg;
-	int ac;
+	int ac, kc;
 	if ( next_arg == NULL ) /* matching only up to first argument */
 	  goto success;
 	arg = all_args[ (*++ps) - 1 ];
@@ -462,8 +492,15 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  goto failure;
 	cis_rewind(arg);
 	while ( ( ac = cis_getch(arg) ) != EOF ) {
-	  if ( ac == cis_peek(in) )
+	 loop1:
+	  kc = cis_peek(in);
+	  if ( ac == kc )
 	    (void)getch_marked(&marker);
+	  else if ( ignore_whitespace && isspace(kc) &&
+		    !( ic == '\n' && (local_options & MatchLine) ) ) {
+	    (void)cis_getch(in);
+	    goto loop1;
+	  }
 	  else goto failure;
 	}
 	break;
@@ -583,7 +620,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  goto failure;
 	/* else fall-through */
       case PTX_INIT: /* beginning of input data */
-	if ( cis_prevch(in) == EOF && ps[1] != PT_END )
+	if ( cis_prevch(in) == EOF )
 	  break;
 	else goto failure;
       case PTX_END_FILE:
@@ -591,7 +628,7 @@ try_pattern( CIStream in, const unsigned char* patstring, CIStream* next_arg,
 	  goto failure;
 	/* else fall-through */
       case PTX_FINAL: /* end of input data */
-	if ( cis_peek(in) == EOF && ps > patstring )
+	if ( cis_peek(in) == EOF )
 	  break;
     	else goto failure;
       case PTX_POSITION: /* leave input stream here after match */
@@ -639,7 +676,8 @@ again:
 	   ( !(local_options & MatchNoCase) || toupper(ic) != toupper(pc) ) ){
 	if ( ignore_whitespace && isspace(ic) &&
 	     ( !isident(pc) || !isident(cis_prevch(in)) ) &&
-	     ( marker.marked || !(local_options & MatchArgDelim) ) ) {
+	     ( marker.marked || !(local_options & MatchArgDelim) ) &&
+	     !( ic == '\n' && (local_options & MatchLine) ) ) {
 	  (void)getch_marked(&marker);
 	  goto again;
 	}
@@ -660,11 +698,23 @@ again:
   goto quit;
  success:
   match = TRUE;
+  if ( !marker.marked && ( options & MatchSwallow ) &&
+       next_arg == all_args &&
+       translation_status == Translate_Complete && 
+       patstring[0] != PT_ONE_OPT )
+    /* matched without advancing the input stream */
+    translation_status = Translate_Continue;
  quit:
   if ( marker.marked ) {
     if ( match && ( options & MatchSwallow ) ) {
-      if ( end_position_marked )
+      if ( end_position_marked ) {
+	if ( end_position.position == marker.start.position &&
+	     next_arg == all_args &&
+	     translation_status == Translate_Complete )
+	  /* matched without advancing the input stream */
+	  translation_status = Translate_Continue;
 	cis_restore(in,&end_position);
+      }
       /* else leave the input stream at the end of the matched text */
       cis_release(in,&marker.start);
     }
@@ -704,7 +754,7 @@ try_match( CIStream in, Pattern pat, COStream out, const unsigned char* goal )
     as = do_action( pat->action, args, out );
     assert( pat->action == NULL || *as == PT_END );
     result = TRUE;
-    if ( translation_status == Translate_Complete )
+    if ( translation_status <= Translate_Continue )
       translation_status = save;
   }
   {
@@ -719,13 +769,17 @@ static boolean
 try_list( CIStream in, Patterns p, COStream out,
 		  const unsigned char* goal ) {
   Pattern pat;
+  boolean result = FALSE;
   for ( pat = p->head ; pat != NULL ; pat = pat->next ) {
-    if ( translation_status != Translate_Complete )
+    if ( translation_status > Translate_Continue )
       return translation_status != Translate_Failed;
-    if ( try_match( in, pat, out, goal ) )
-      return TRUE;
-   }
-  return FALSE;
+    if ( try_match( in, pat, out, goal ) ) {
+      if ( translation_status != Translate_Continue )
+	return TRUE;
+      result = TRUE;
+    }
+  }
+  return result;
 }
 
 static boolean
@@ -753,8 +807,12 @@ try_patterns( int ch, CIStream in, MarkBuf* start, Patterns p, COStream out,
 	    cis_restore(in, start);
 	    start = NULL;
 	  }
-	  if ( try_list( in, sub, out, goal ) )
-	    return TRUE;
+	  if ( try_list( in, sub, out, goal ) ) {
+	    if ( translation_status == Translate_Continue )
+	      translation_status = Translate_Complete;
+	    else
+	      return TRUE;
+	  }
 	}
       }
     } /* end p->dispatch */
@@ -762,7 +820,13 @@ try_patterns( int ch, CIStream in, MarkBuf* start, Patterns p, COStream out,
       assert ( start != &mark );
       cis_restore(in, start);
     }
-    return try_list( in, p, out, goal );
+    if ( try_list( in, p, out, goal ) ) {
+      if ( translation_status == Translate_Continue )
+	translation_status = Translate_Complete;
+      else
+	return TRUE;
+    }
+    return FALSE;
 }
 
 static int domains_checked = 1;
@@ -802,15 +866,14 @@ boolean translate ( CIStream in, Domain domainpt, COStream out,
   Pattern pat;
   for ( pat = domainpt->init_and_final_patterns ; pat != NULL ; pat = pat->next ) {
     const unsigned char* ps = pat->pattern;
-    if ( ps[0] == PT_AUX && ps[2] == PT_END &&
-  	 ( ps[1] == PTX_INIT ||
-  	   ( ps[1] == PTX_BEGIN_FILE && goal == NULL && cis_is_file(in) &&
-  		 cis_prevch(in) == EOF ) ) ) {
-	current_rule = pat;
-	do_action( pat->action, NULL, out );
+    if ( ps[1] == PTX_INIT || ps[1] == PTX_BEGIN_FILE )
+      if ( try_match( in, pat, out, goal ) ) {
 	no_match = FALSE;
+	if ( translation_status == Translate_Continue )
+	  translation_status = Translate_Complete;
+	else break;
       }
-    }
+  }
   }
 
   for ( ; translation_status == Translate_Complete ; ) {
@@ -858,15 +921,11 @@ next_char: ;
   Pattern pat;
   for ( pat = domainpt->init_and_final_patterns ; pat != NULL ; pat = pat->next ) {
     const unsigned char* ps = pat->pattern;
-    if ( ps[0] == PT_AUX && ps[2] == PT_END &&
-	 ( ps[1] == PTX_FINAL ||
-  	   ( ps[1] == PTX_END_FILE && goal == NULL && cis_is_file(in) &&
-  	     cis_peek(in) == EOF ) ) ) {
-      current_rule = pat;
-      do_action( pat->action, NULL, out );
-      no_match = FALSE;
-     }
-   }
+    if ( ps[1] == PTX_FINAL || ps[1] == PTX_END_FILE ) {
+      if ( try_match( in, pat, out, goal ) )
+	no_match = FALSE;
+    }
+  }
   if ( no_match && cis_prevch(in) == EOF && cis_peek(in) == EOF ) {
     for ( pat = domainpt->patterns.head ; pat != NULL ; pat = pat->next ) {
       if ( pat->pattern[0] == PT_END ) {
