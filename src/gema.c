@@ -10,7 +10,7 @@
   an acknowledgment of the original source.
  *********************************************************************/
 
-#if defined(_QC)
+#if defined(_QC) || defined(_MSC_VER)
 #pragma check_stack(off)
 #endif
 
@@ -93,7 +93,54 @@ set_parm(const char* name, const char* value) {
     }
   return FALSE;
 }
+
+#ifdef MSDOS
+#ifdef __TURBOC__
+#include <dir.h>
+#endif
+#include <dos.h>
+#endif /* MSDOS */
 
+void
+expand_wildcard ( const char* file_spec, COStream out ) {
+/*  Expand wild card file name on MS-DOS.
+    (On Unix, this is not needed because expansion is done by the shell.)
+ */
+#ifdef MSDOS
+#if defined(_FIND_T_DEFINED)  /* Microsoft C */
+  struct _find_t fblk;
+  if ( _dos_findfirst( file_spec, _A_NORMAL|_A_ARCH|_A_RDONLY, &fblk )
+       == 0 ) {
+    /* first match found */
+    do {
+      cos_puts( out, fblk.name );
+      cos_putch( out, '\n' );
+    }
+    while ( _dos_findnext( &fblk ) == 0 );
+  }
+  else
+#elif defined(__TURBOC__)  /* Borland Turbo C */
+  struct ffblk fblk;
+  if ( findfirst( file_spec, &fblk, FA_ARCH|FA_RDONLY ) == 0 ) {
+    /* first match found */
+    do {
+      cos_puts( out, fblk.ff_name );
+      cos_putch( out, '\n' );
+    }
+    while ( findnext( &fblk ) == 0 );
+  }
+  else
+#endif /* Borland */
+  if ( strchr(file_spec,'*') != NULL )
+    fprintf( stderr, "No match for \"%s\"\n", file_spec );
+  else
+#endif /* MSDOS */
+  {
+    cos_puts( out, file_spec );
+    cos_putch( out, '\n' );
+  }
+}
+
 static char argv_domain_name[] = "ARGV";
 
 static void
@@ -167,12 +214,19 @@ CI "\\N-backup\\n<G>\\n=@set-parm{backup;$1}\n"
 CI "\\N-out\\n*\\n=@set{.OUT;$1}\n"
 CI "\\N-in\\n*\\n=@set{.IN;$1}\n"
    "\\N\\L*\\=*\\n=@define{$0}\n"
-   "\\N\\L\\@*\\{*\\n=@define{$0}\n"
+   "\\N\\L\\@*\\n=@define{$0}\n"
 CI "\\N-odir\\n*\\n=@set{.ODIR;*}\n"
 CI "\\N-otyp\\n*\\n=@set{.OTYP;*}\n"
    "\\N-*\\n=@err{Unrecognized option:\\ \"-*\"\\n}@exit-status{3}\n"
    "\\n=\n"
+#ifdef MSDOS
+   /* On MS-DOS, file name wild cards have to be expanded by the
+      program, unlike Unix where expansion is done by the shell. */
+   "\\N*\\n=@ARGV-F{@expand-wild{*}}\n"
+   "ARGV-F:*\\n=@ARGV-FILE{${.ODIR;}\\n${.OUT;}\\n${.IN;}\\n*}\n"
+#else
    "\\N*\\n=@ARGV-FILE{${.ODIR;}\\n${.OUT;}\\n${.IN;}\\n*}\n"
+#endif
    "\\Z=@ARGV-END{${.OUT;}\\n${.IN;}\\n${.ODIR;}\\n}\n"
 "ARGV-FILE:\\n\\n\\n<U>=@set{.IN;$1};"
  "\\n\\n<U>\\n<U>=@set{.OUT;$2};"
