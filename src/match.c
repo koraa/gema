@@ -11,9 +11,12 @@
  *********************************************************************/
 
 /* $Log$
-/* Revision 1.15  1995/08/27 20:46:03  gray
-/* Fix for "\J" preceding empty argument with "-w" but not "-t".
+/* Revision 1.16  1995/09/29 04:09:44  gray
+/* Fix `trace' format on MS-DOS.
 /*
+ * Revision 1.15  1995/08/27  20:46:03  gray
+ * Fix for "\J" preceding empty argument with "-w" but not "-t".
+ *
  * Revision 1.14  1995/08/20  05:38:21  gray
  * Fix handling of empty optional argument in argument terminator.
  * Add trace messages for matched recognizer and failed "*".
@@ -183,7 +186,7 @@ trace( struct mark_struct * mp, trace_kinds kind, const char* format, ... ) {
   if ( trace_switch ) {
     int n;
     if ( trace_indent > trace_enter.level ) {
-      fprintf( stderr, "%12d,%2d ", trace_enter.line, trace_enter.column);
+      fprintf( stderr, "%12ld,%2d ", trace_enter.line, trace_enter.column);
       for ( n = trace_enter.level ; n > 0 ; n-- )
 	fputc(' ',stderr);
       fprintf( stderr, "Try <%s> at '%s'\n",
@@ -195,9 +198,9 @@ trace( struct mark_struct * mp, trace_kinds kind, const char* format, ... ) {
       fprintf( stderr, "%16s", "");
     else {
       if ( mp->marked )
-	fprintf( stderr, "%4d,%2d:", mp->start.line, mp->start.column );
+	fprintf( stderr, "%4ld,%2d:", mp->start.line, mp->start.column );
       else fprintf( stderr, "%8s","");
-      fprintf( stderr, "%4d,%2d ", cis_line(mp->in), cis_column(mp->in));
+      fprintf( stderr, "%4ld,%2d ", cis_line(mp->in), cis_column(mp->in));
     }
     for ( n = trace_indent ; n > 0 ; n-- )
       fputc(' ',stderr);
