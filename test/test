@@ -1,7 +1,7 @@
 
 # test script for Unix
 rm -f /tmp/pattest*.out
-./gema -f testpat.dat testin.dat /tmp/pattest.out
+./gema -version -f testpat.dat testin.dat /tmp/pattest.out
 diff testout.dat /tmp/pattest.out
 ./gema -f testpat.dat -i -idchars "-_" -out /tmp/pattest2.out test2.dat
 diff test2out.dat /tmp/pattest2.out
