@@ -2,6 +2,7 @@
 # make file for "gema":
 #
 #	use "make gcc" to build with the Gnu C compiler
+#	or "make acc" to build with the Solaris ANSI C compiler
 #	or "make lcc" to build with the Lucid C compiler.
 #
 #  (An ANSI-C compiler is required.)
@@ -10,16 +11,19 @@
 
 INSTALLDIR = /usr/local
 
-all: gema
+all: gcc
 
 gcc:
-	${MAKE} CC=gcc CCFLAGS="-ansi -Wall -O2 -DNDEBUG"
+	${MAKE} CC=gcc CCFLAGS="-ansi -Wall -O2 -DNDEBUG" gema
 
 lcc:
-	${MAKE} CC=lcc CCFLAGS="-XG -O -Xa -DNDEBUG"
+	${MAKE} CC=lcc CCFLAGS="-XG -O -Xa -DNDEBUG" gema
+
+acc:
+	${MAKE} CC=acc CCFLAGS="-O -DNDEBUG" gema
 
 debug:
-	${MAKE} CC=lcc CCFLAGS="-g -Xa -wucpd"
+	${MAKE} CC=lcc CCFLAGS="-g -Xa -wucpd" gema
 
 OBJS =  gema.o reg-expr.o var.o util.o read.o match.o cstream.o action.o
 
@@ -39,6 +43,7 @@ install: ${INSTALLDIR}/bin/gema
 
 ${INSTALLDIR}/bin/gema: gema
 	cp gema ${INSTALLDIR}/bin/gema
+	strip ${INSTALLDIR}/bin/gema
 
 reg-expr.o: reg-expr.c reg-expr.h
 
