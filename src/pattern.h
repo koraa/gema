@@ -20,6 +20,7 @@ boolean translate ( CIStream in, Domain d, COStream out,
 		    const unsigned char* goal );
 
 extern boolean line_mode;
+extern boolean token_mode;
 
 extern boolean discard_unmatched;
 
