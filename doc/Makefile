@@ -32,7 +32,7 @@ gema.lpr: gema.1
 	nroff -man gema.1 > $@
 
 gema.ps: gema.1
-	ptroff -t -man gema.1 > $@
+	ptroff -t -man gema.1 > $@ || groff -Tps -man gema.1 > $@
 
 gema.html: gema.1
 	gema -f ../examples/man-html.dat gema.1 $@
