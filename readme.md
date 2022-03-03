@@ -1,6 +1,8 @@
-# GEMA
+# General Purpose Text Processor
 
-This is an import of the original GEMA repository.
+rewrite is an import of the original gema repository. gema the source code has not been updated since 2004, but despite this, it just seems to work!
+
+gema is a general purpose text processing utility based on the concept of pattern matching. In general, it reads an input file and copies it to an output file, while performing certain transformations to the data as specified by a set of patterns defined by the user. It can be used to do the sorts of things that are done by Unix utilities such as `cpp`, `grep`, `sed`, `awk`, or strings. It can be used as a macro processor, but it is much more general than `cpp` or `m4` because it does not impose any particular syntax for what a macro call looks like. Unlike utilities like `sed` or `awk`, gema can deal with patterns that span multiple lines and with nested constructs. It is also distinguished by being able to use multiple sets of rules to be used in different contexts.
 
 Homepage: https://gema.sourceforge.net/new/index.shtml  
 Homepage (archived): https://web.archive.org/web/2021*/http://gema.sourceforge.net/new/index.shtml  
