@@ -2,8 +2,8 @@
 
 This is an import of the original GEMA repository.
 
-Homepage: http://gema.sourceforge.net/new/index.shtml  
-Homepage (archived): http://gema.sourceforge.net/new/index.shtml  
+Homepage: https://gema.sourceforge.net/new/index.shtml  
+Homepage (archived): https://web.archive.org/web/2021*/http://gema.sourceforge.net/new/index.shtml  
 
 ### Quickstart
 
