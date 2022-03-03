@@ -1,0 +1,10 @@
+src/*.o
+src/gema
+
+doc/*.aux
+doc/*.dvi
+doc/*.log
+doc/*.ps
+doc/*.html
+doc/*.lpr
+doc/latex-to-html

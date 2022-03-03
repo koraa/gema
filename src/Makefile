@@ -48,12 +48,20 @@ gema: ${OBJS}
 
 install: ${INSTALLDIR}/bin/gema ${INSTALLDIR}/man/man1/gema.1
 
+uninstall:
+	rm -fv ${INSTALLDIR}/bin/gema ${INSTALLDIR}/man/man1/gema.1
+
 ${INSTALLDIR}/bin/gema: gema
+	mkdir -p ${INSTALLDIR}/bin
 	cp gema $@
 	strip $@
 
 ${INSTALLDIR}/man/man1/gema.1: ../doc/gema.1
+	mkdir -p ${INSTALLDIR}/man/man1/
 	cp ../doc/gema.1 $@
+
+../doc/gema.1:
+	make -C ../doc
 
 reg-expr.o: reg-expr.c reg-expr.h
 
