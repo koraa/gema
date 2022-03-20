@@ -1,3 +1,5 @@
+## Since this covering this I have run it through valgrind and the depths of hell have opened up. GEMA seems to be completely full of use after free errors. Some of these likely constitute security vulnerabilities. I will leave this repository up because I still think the language is nice but I do not reccomend using it for anything other than experimentation with data you trust as input.
+
 # General Purpose Text Processor
 
 rewrite is an import of the original gema repository. gema the source code has not been updated since 2004, but despite this, it just seems to work!
